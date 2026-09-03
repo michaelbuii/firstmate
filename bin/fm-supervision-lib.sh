@@ -1,6 +1,10 @@
 # shellcheck shell=bash
 # Shared "supervision missing" predicate.
 # Usage: . bin/fm-supervision-lib.sh
+
+# shellcheck source=bin/fm-stat-lib.sh
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-stat-lib.sh"
 #
 # Reports whether a firstmate home needs supervision because it has in-flight
 # work (a state/<id>.meta exists) or an X-mode relay poll
@@ -12,10 +16,12 @@
 # live watcher process means per supervision model. The status fields here retain
 # the beacon-age details used in their messages.
 
-# Portable mtime; Linux stat lacks -f, macOS stat lacks -c.
+# Portable mtime; Linux stat lacks -f, macOS stat lacks -c. Darwin routes
+# through fm_stat_bsd (bin/fm-stat-lib.sh) so a GNU stat shadowing the real
+# BSD stat on PATH cannot slip a multi-line filesystem dump into $m.
 fm_sup_stat_mtime() {
   if [ "$(uname)" = Darwin ]; then
-    stat -f %m "$1" 2>/dev/null
+    fm_stat_bsd %m "$1"
   else
     stat -c %Y "$1" 2>/dev/null
   fi

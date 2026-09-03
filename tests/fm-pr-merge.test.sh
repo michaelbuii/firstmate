@@ -1938,6 +1938,25 @@ test_queued_gitlab_merge_leaves_the_poll_armed() {
   pass "a queued GitLab merge stays silent and leaves confirmation to the armed poll"
 }
 
+test_outcome_report_rebinds_explicit_state_queue() {
+  local case_dir live_state url
+  url=https://github.com/example/repo/pull/68
+  case_dir=$(make_home_case isolated-outcome-report)
+  live_state="$TMP_ROOT/live-status"
+  mkdir -p "$live_state"
+  FM_HOME="$ROOT" \
+  STATE="$live_state" \
+  FM_WAKE_QUEUE="$live_state/strategy-platform.status" \
+  FM_WAKE_QUEUE_LOCK="$live_state/strategy-platform.status.lock" \
+    fm_merge_outcome_report "$case_dir/home" "$case_dir/state" task-x1 "$url" self \
+    || fail "isolated outcome report should succeed"
+  assert_grep "$url" "$case_dir/state/.wake-queue" \
+    "isolated outcome report did not write its explicit state queue"
+  [ ! -e "$live_state/strategy-platform.status" ] \
+    || fail "isolated outcome report wrote outside its explicit state directory"
+  pass "outcome publication rebinds its queue to the explicit state directory"
+}
+
 test_main_home_merge_leaves_a_durable_wake() {
   local case_dir url
   url=https://github.com/example/repo/pull/64

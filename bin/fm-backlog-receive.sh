@@ -26,6 +26,8 @@ LOCK_STALE_SECS=30
 . "$SCRIPT_DIR/fm-tasks-axi-lib.sh"
 # shellcheck source=bin/fm-wake-lib.sh
 . "$SCRIPT_DIR/fm-wake-lib.sh"
+# shellcheck source=bin/fm-stat-lib.sh
+. "$SCRIPT_DIR/fm-stat-lib.sh"
 
 die() { printf 'error: %s\n' "$1" >&2; exit 1; }
 usage() { sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
@@ -57,7 +59,7 @@ list_keys() { # <file>
 lock_age() {
   local modified now
   if [ "$(uname 2>/dev/null)" = Darwin ]; then
-    modified=$(stat -f '%m' "$1" 2>/dev/null) || return 1
+    modified=$(fm_stat_bsd '%m' "$1") || return 1
   else
     modified=$(stat -c '%Y' "$1" 2>/dev/null) || return 1
   fi

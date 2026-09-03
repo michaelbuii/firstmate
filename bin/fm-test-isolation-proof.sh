@@ -57,6 +57,9 @@ set -eu
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT" || exit 1
 
+# shellcheck source=bin/fm-stat-lib.sh
+. "$ROOT/bin/fm-stat-lib.sh"
+
 JOBS=4
 JSON_PATH=
 LIST_ONLY=0
@@ -216,10 +219,10 @@ EOF
 
 dir_mode() {
   local path=$1
-  if stat -f %Lp "$path" >/dev/null 2>&1; then
-    stat -f %Lp "$path"
+  if [ "$(uname)" = Darwin ]; then
+    fm_stat_bsd %Lp "$path"
   else
-    stat -c %a "$path"
+    stat -c %a "$path" 2>/dev/null
   fi
 }
 

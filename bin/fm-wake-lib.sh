@@ -2,6 +2,9 @@
 # Shared durable wake queue and portable lock helpers.
 
 FM_WAKE_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=bin/fm-stat-lib.sh
+# shellcheck disable=SC1091
+. "$FM_WAKE_LIB_DIR/fm-stat-lib.sh"
 FM_WAKE_DEFAULT_ROOT="$(cd "$FM_WAKE_LIB_DIR/.." && pwd)"
 FM_ROOT="${FM_ROOT_OVERRIDE:-${FM_ROOT:-$FM_WAKE_DEFAULT_ROOT}}"
 FM_HOME="${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_ROOT}}"
@@ -83,7 +86,7 @@ fm_pid_identity() {
 
 fm_path_mtime() {
   if [ "$_FM_UNAME" = Darwin ]; then
-    stat -f %m "$1" 2>/dev/null
+    fm_stat_bsd %m "$1"
   else
     stat -c %Y "$1" 2>/dev/null
   fi
@@ -1660,7 +1663,7 @@ fm_wake_signal_sig() {  # <file> -> reported-state signature
       status_observed_signature "$1"
       ;;
     *)
-      if [ "$_FM_UNAME" = Darwin ]; then stat -f '%z:%Fm' "$1" 2>/dev/null; else stat -c '%s:%Y' "$1" 2>/dev/null; fi
+      if [ "$_FM_UNAME" = Darwin ]; then fm_stat_bsd '%z:%Fm' "$1"; else stat -c '%s:%Y' "$1" 2>/dev/null; fi
       ;;
   esac
 }

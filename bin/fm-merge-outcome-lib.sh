@@ -52,8 +52,14 @@ fm_merge_outcome_report() {  # <home> <state> <task-id> <pr-url> <origin>
   local home=$1 state=$2 id=$3 url=$4 origin=$5
   local self_rc=0 destination='' line lock status=0
   local provider host path number
-  # shellcheck disable=SC2034 # Sourced wake helpers consume these scoped globals.
-  local STATE FM_WAKE_QUEUE FM_WAKE_QUEUE_LOCK
+  # These paths are caller-owned inputs. Rebind the sourced wake helpers below
+  # to this report's state directory instead of inheriting a prior source's
+  # queue path, which would let an isolated test write to the live home.
+  local FM_HOME STATE FM_WAKE_QUEUE FM_WAKE_QUEUE_LOCK
+  FM_HOME=$home
+  STATE=$state
+  FM_WAKE_QUEUE="$state/.wake-queue"
+  FM_WAKE_QUEUE_LOCK="$state/.wake-queue.lock"
   FM_MERGE_OUTCOME_ALREADY_RECORDED=false
   case "$origin" in self|poll) ;; *) return 2 ;; esac
   fm_pr_task_id_valid "$id" || return 2
@@ -72,7 +78,6 @@ fm_merge_outcome_report() {  # <home> <state> <task-id> <pr-url> <origin>
     destination=''
   fi
 
-  STATE=$state
   # shellcheck source=bin/fm-wake-lib.sh
   . "$_FM_MERGE_OUTCOME_LIB_DIR/fm-wake-lib.sh"
   lock="$state/$id.pr-poll-merge-notified.lock"

@@ -34,7 +34,7 @@ test_family_pool_json_identifies_admission() {
   capped_json="$tmp/capped-proof.json"
   skipped_json="$tmp/skipped-proof.json"
   mkdir -p "$repo/bin" "$repo/tests"
-  cp "$PROOF" "$proof"
+  cp "$PROOF" "$ROOT/bin/fm-stat-lib.sh" "$repo/bin/"
   cat >"$repo/bin/fm-test-run.sh" <<'SH'
 #!/usr/bin/env bash
 if { [ "$1" = --list ] || [ "$1" = --list-scheduled ]; } && [ "$2" = --family ]; then

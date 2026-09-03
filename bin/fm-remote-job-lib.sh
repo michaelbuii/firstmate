@@ -755,10 +755,14 @@ fm_remote_job_reap() { # <account-home> <id>; only removes an exact completed re
   rmdir "$job"
 }
 
+# shellcheck source=bin/fm-stat-lib.sh
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-stat-lib.sh"
+
 fm_remote_job_path_mtime() { # <path>
   # The platform override controls worker shape in isolated tests, not the host
   # kernel's stat syntax.
-  if [ "$(uname -s 2>/dev/null || true)" = Darwin ]; then stat -f %m "$1" 2>/dev/null; else stat -c %Y "$1" 2>/dev/null; fi
+  if [ "$(uname -s 2>/dev/null || true)" = Darwin ]; then fm_stat_bsd %m "$1"; else stat -c %Y "$1" 2>/dev/null; fi
 }
 
 fm_remote_job_stage_owner_alive() { # <stage-dir>

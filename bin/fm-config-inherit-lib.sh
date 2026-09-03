@@ -51,6 +51,9 @@
 # reconciled by the ordinary remote sync/update path before the transfer
 # succeeds; there is no separate allowlist version negotiation.
 #
+# shellcheck source=bin/fm-stat-lib.sh
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-stat-lib.sh"
 # shellcheck source=bin/fm-startup-memory-budget-lib.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-startup-memory-budget-lib.sh"
 
@@ -95,7 +98,7 @@ fm_config_inherit_items() {
 
 fm_inherit_file_mode() {
   if [ "$(uname)" = Darwin ]; then
-    stat -f %Lp "$1" 2>/dev/null
+    fm_stat_bsd %Lp "$1"
   else
     stat -c %a "$1" 2>/dev/null
   fi
@@ -103,7 +106,7 @@ fm_inherit_file_mode() {
 
 fm_inherit_file_device() {
   if [ "$(uname)" = Darwin ]; then
-    stat -f %d "$1" 2>/dev/null
+    fm_stat_bsd %d "$1"
   else
     stat -c %d "$1" 2>/dev/null
   fi
@@ -111,7 +114,7 @@ fm_inherit_file_device() {
 
 fm_inherit_file_link_count() {
   if [ "$(uname)" = Darwin ]; then
-    stat -f %l "$1" 2>/dev/null
+    fm_stat_bsd %l "$1"
   else
     stat -c %h "$1" 2>/dev/null
   fi

@@ -6,6 +6,14 @@ This record supports current session-start, turn-end, watcher-continuity, and we
 Operator behavior and active limits remain in the linked current guides.
 Task-specific chronology, temporary paths, run identifiers, and delivery transcripts remain in private reports or PR evidence.
 
+## Darwin stat portability
+
+On 2026-09-03, `bash tests/fm-stat-lib.test.sh` and `/bin/bash tests/fm-stat-lib.test.sh` passed with a GNU coreutils `stat` first on `PATH` and a verified BSD-stat fixture selected through `FM_STAT_BSD_ANCHOR`.
+
+The exact portable regression command is `bin/fm-test-run.sh tests/fm-stat-lib.test.sh`.
+
+The regression covers every Darwin format used by `bin/`, validates single-line output, exercises supervision, status presentation, startup-memory, and Herdr reads, and proves the explicit-state outcome publisher cannot write to an unrelated live status path.
+
 ## Native session-start delivery
 
 The cross-harness transport pass ran on 2026-07-17 with Codex 0.144.4, Grok 0.2.103, OpenCode 1.17.18, Pi 0.80.10, and the tracked Claude hook wiring.

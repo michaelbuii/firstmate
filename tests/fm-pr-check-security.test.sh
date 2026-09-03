@@ -20,7 +20,11 @@ TMP_ROOT=$(fm_test_tmproot fm-pr-check-security)
 BASE_PATH=${FM_TEST_BASE_PATH:-/usr/bin:/bin:/usr/sbin:/sbin}
 REAL_CP=$(command -v cp)
 REAL_MV=$(command -v mv)
-REAL_STAT=$(command -v stat)
+if [ "$(uname -s)" = Darwin ]; then
+  REAL_STAT=/usr/bin/stat
+else
+  REAL_STAT=$(command -v stat)
+fi
 REAL_CHMOD=$(command -v chmod)
 # The merge path reads a merge request's JSON with the real jq, and BASE_PATH is
 # deliberately restricted, so a case that needs jq exposes this one rather than
@@ -39,12 +43,12 @@ ack_watcher_cycle() {  # <state>
     --recovery-generation "$generation"
 }
 
+# Delegates to the production helper (bin/fm-pr-lib.sh, sourced above) instead
+# of duplicating the Darwin stat -f branch: a GNU stat shadowing the real BSD
+# stat on PATH broke a hand-rolled duplicate here the same way it broke the
+# production call sites fixed by bin/fm-stat-lib.sh.
 file_mode() {
-  if [ "$(uname)" = Darwin ]; then
-    stat -f %Lp "$1"
-  else
-    stat -c %a "$1"
-  fi
+  fm_pr_file_mode "$1"
 }
 
 process_is_live_non_zombie() {
@@ -986,6 +990,7 @@ test_postrename_poll_validation_revokes_and_retries() {
       if FM_TEST_FINAL_PATH="$destination" FM_TEST_FINAL_ACTION="$action" \
         FM_TEST_FAULT_LINK_TARGET="$link_target" FM_TEST_FAULT_GATE="$gate" \
         FM_TEST_REAL_MV="$REAL_MV" FM_TEST_REAL_STAT="$REAL_STAT" FM_TEST_REAL_CHMOD="$REAL_CHMOD" \
+        FM_STAT_BSD_ANCHOR="$dir/fakebin/stat" \
         PATH="$dir/fakebin:$BASE_PATH" fm_pr_poll_publish_prepared; then
         fail "post-rename $artifact $action fault was reported as success"
       fi

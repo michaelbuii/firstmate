@@ -584,7 +584,7 @@ fm_procevent_path_normalize() {
 fm_procevent_directory_owned_by_current_user() {
   local owner
   if [ "$(uname)" = Darwin ]; then
-    owner=$(stat -f %u "$1" 2>/dev/null)
+    owner=$(fm_stat_bsd %u "$1")
   else
     owner=$(stat -c %u "$1" 2>/dev/null)
   fi

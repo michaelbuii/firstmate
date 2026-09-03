@@ -151,9 +151,12 @@ WATCHER_STALE_GRACE=${FM_WATCHER_STALE_GRACE:-${FM_GUARD_GRACE:-300}}
 # "Blocks: ...") to stdout before failing, so the fallback's correct output gets
 # appended to that garbage. Arithmetic under `set -u` then aborts on the stray
 # token (e.g. the word "File" read as an unset variable), which silently kills the
-# watcher mid-cycle. Detect the platform once and pick the right form.
+# watcher mid-cycle. Detecting Darwin is not enough either: a GNU stat earlier on
+# PATH than /usr/bin/stat hits exactly this failure on a real Mac, so the Darwin
+# branch routes through fm_stat_bsd (bin/fm-stat-lib.sh, sourced by fm-x-lib.sh
+# above), which resolves and verifies a genuine BSD stat before reading.
 if [ "$(uname)" = Darwin ]; then
-  stat_mtime() { stat -f %m "$1" 2>/dev/null; }        # epoch seconds of mtime
+  stat_mtime() { fm_stat_bsd %m "$1"; }        # epoch seconds of mtime
 else
   stat_mtime() { stat -c %Y "$1" 2>/dev/null; }
 fi

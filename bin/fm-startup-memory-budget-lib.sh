@@ -16,6 +16,10 @@ FM_STARTUP_MEMORY_MEASURE_BYTES=""
 FM_STARTUP_MEMORY_MEASURE_TOKENS=""
 FM_STARTUP_MEMORY_MEASURE_PRESENCE=""
 
+# shellcheck source=bin/fm-stat-lib.sh
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-stat-lib.sh"
+
 fm_startup_memory_budget_fail() {
   FM_STARTUP_MEMORY_BUDGET_ERROR=$1
   return 1
@@ -23,7 +27,7 @@ fm_startup_memory_budget_fail() {
 
 fm_startup_memory_budget_link_count() {
   if [ "$(uname)" = Darwin ]; then
-    stat -f %l "$1" 2>/dev/null
+    fm_stat_bsd %l "$1"
   else
     stat -c %h "$1" 2>/dev/null
   fi

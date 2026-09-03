@@ -235,8 +235,11 @@ AFK_FLAG_NAME=".afk"
 _state_root() { printf '%s' "${FM_STATE_OVERRIDE:-$FM_HOME/state}"; }
 
 # --- portable stat (same trap as fm-watch.sh: no `stat -f || stat -c`) -------
+# Darwin routes through fm_stat_bsd (bin/fm-stat-lib.sh, sourced by
+# fm-classify-lib.sh above) so a GNU stat shadowing the real BSD stat on PATH
+# cannot slip a multi-line filesystem dump into a caller's mtime read.
 if [ "$(uname)" = Darwin ]; then
-  _stat_file_mtime() { stat -f %m "$1" 2>/dev/null; }
+  _stat_file_mtime() { fm_stat_bsd %m "$1"; }
 else
   _stat_file_mtime() { stat -c %Y "$1" 2>/dev/null; }
 fi

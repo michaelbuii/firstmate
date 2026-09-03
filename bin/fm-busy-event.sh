@@ -48,6 +48,8 @@ EOF
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=bin/fm-busy-lib.sh
 . "$SCRIPT_DIR/fm-busy-lib.sh"
+# shellcheck source=bin/fm-stat-lib.sh
+. "$SCRIPT_DIR/fm-stat-lib.sh"
 
 CMD=${1:-}
 case "$CMD" in
@@ -99,11 +101,14 @@ LOCK="$REC.lock"
 # stat uses `-c <fmt>`. Do NOT collapse this into `stat -f <fmt> ... || stat -c
 # <fmt> ...`: on GNU `-f` is *filesystem* stat, so it reads the format string as
 # a path, reports that on stderr, prints a partial filesystem dump ("  File:
-# ...") on stdout, and still exits 0 - the fallback never runs and the caller
-# gets a non-numeric token. Detect the platform once and pick the right form,
-# exactly as bin/fm-watch.sh does.
+# ...") on stdout, and can exit either 0 or 1 depending on the coreutils build -
+# the fallback is not reliably reached and a naive caller can get a non-numeric
+# token. Detecting Darwin is not enough either: a GNU stat earlier on PATH than
+# /usr/bin/stat hits exactly this failure on a real Mac, so the Darwin branch
+# routes through fm_stat_bsd (bin/fm-stat-lib.sh), which resolves and verifies a
+# genuine BSD stat before reading.
 if [ "$(uname)" = Darwin ]; then
-  lock_mtime() { stat -f %m "$1" 2>/dev/null; }
+  lock_mtime() { fm_stat_bsd %m "$1"; }
 else
   lock_mtime() { stat -c %Y "$1" 2>/dev/null; }
 fi

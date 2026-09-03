@@ -223,7 +223,7 @@ family_for_basename() {
     fm-documentation-audiences.test.sh|fm-ensure-agents-md.test.sh|fm-grok-harness.test.sh|\
     fm-kimi-harness.test.sh|fm-muse-harness.test.sh|fm-herdr-lab.test.sh|fm-lint.test.sh|\
     fm-lint-workflows.test.sh|\
-    fm-operational-input.test.sh|fm-pi-primary-types.test.sh|\
+    fm-operational-input.test.sh|fm-pi-primary-types.test.sh|fm-stat-lib.test.sh|\
     fm-harness-adapter-references.test.sh|\
     fm-send-popup-settle.test.sh|fm-send-settle.test.sh|\
     fm-subagent-pretool-check.test.sh|\
@@ -2150,6 +2150,11 @@ else
     if [ -s "$out" ]; then
       cat "$out"
     fi
+    # GNU-first is deliberate and safe here, unlike the Darwin-first `stat -f`
+    # sites fixed via fm-stat-lib.sh's fm_stat_bsd: `stat -c` only ever succeeds
+    # against a genuine GNU stat, so a GNU stat anywhere on PATH (real Linux, or
+    # one shadowing BSD stat on a Mac) resolves correctly here; only a real BSD
+    # stat with no GNU stat present ever reaches the `-f` fallback.
     mode=$(stat -c %a "$work" 2>/dev/null || stat -f %Lp "$work" 2>/dev/null || echo unknown)
     case "$mode" in
       700|0700) ;;
