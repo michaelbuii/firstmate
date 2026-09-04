@@ -55,12 +55,10 @@ export interface UnreadWakeScope {
    */
   corrupted: boolean;
   /**
-   * The exact "key" field of every row this scan excluded because its payload
-   * is "needs-decision:"-prefixed
-   * (bin/fm-watch.sh's signal_files_actionable). fm-primary-pi-watch.ts's
-   * offerWakeToBranch cross-references this against the current trigger's own
-   * file list so a needs-decision trigger is forced to main exactly like a
-   * check-kind trigger, without the wake message text itself ever changing.
+   * The exact "key" field of every signal, stale, or heartbeat row excluded
+   * because its payload is "needs-decision:"-prefixed. The watch extension
+   * cross-references these keys against the current trigger so that trigger is
+   * forced to main without changing its externally delivered wake message.
    */
   needsDecisionKeys: string[];
 }
@@ -97,12 +95,12 @@ const UNSAFE_SCOPE: UnreadWakeScope = {
 // (fm-primary-pi-watch.ts forces every check-kind TRIGGER to main), so nothing
 // starves by being left behind.
 //
-// A signal-kind row whose payload is "needs-decision:"-prefixed - a task-local
-// needs-decision status append (bin/fm-watch.sh's signal_files_actionable) -
-// gets the identical treatment: excluded from eligibleSeqs, never a scan veto,
-// and forced to main on its own triggering close
-// (fm-primary-pi-watch.ts's offerWakeToBranch). Every needs-decision must reach
-// main directly rather than taking the supervision-branch hop first.
+// A signal, stale, or heartbeat row whose payload is "needs-decision:"
+// prefixed gets the identical treatment: excluded from eligibleSeqs, never a
+// scan veto, and forced to main on its own triggering close by
+// fm-primary-pi-watch.ts's offerWakeToBranch. The producers use that payload
+// marker for decision-bearing status spans and captain-held stale rechecks;
+// docs/pi-supervision-branch.md owns the complete routing contract.
 //
 // That applies to a heartbeat review too, and it is the whole point: a
 // heartbeat used to be deferred to main merely because some unrelated check
