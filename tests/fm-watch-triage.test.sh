@@ -2218,7 +2218,7 @@ parked_watch_round() {  # <state> <fakebin> <out> <capture> <window> <exit|absor
 # so a forgotten wait cannot rot invisibly.
 test_live_declared_wait_churn_honors_the_resurface_throttle() {
   local spec name status_line dir state fakebin out capture_file statusf window key
-  local sig round wakes bare text throttle replacement
+  local sig round wakes bare text throttle replacement expected_payload
   for spec in \
     'paused-pipeline-churn|paused: waiting on the validation run to finish' \
     'captain-held-churn|captain-held [key=route]: awaiting the captain on the routing call'
@@ -2274,7 +2274,9 @@ test_live_declared_wait_churn_honors_the_resurface_throttle() {
       || fail "[$name] a replacement declared wait inherited the previous wait's re-surface throttle"
     wakes=$(awk -F '\t' -v w="$window" '$3 == "stale" && $4 == w { n++ } END { print n + 0 }' \
       "$state/.wake-queue" 2>/dev/null || echo 0)
-    bare=$(awk -F '\t' -v w="$window" '$3 == "stale" && $4 == w && $5 == "stale: " w { n++ } END { print n + 0 }' \
+    expected_payload="stale: $window"
+    [ "$name" != captain-held-churn ] || expected_payload="needs-decision:stale: $window"
+    bare=$(awk -F '\t' -v w="$window" -v p="$expected_payload" '$3 == "stale" && $4 == w && $5 == p { n++ } END { print n + 0 }' \
       "$state/.wake-queue" 2>/dev/null || echo 0)
     [ "$wakes" -eq 1 ] || fail "[$name] replacement declared wait produced $wakes first wakes instead of one"
     [ "$bare" -eq 1 ] || fail "[$name] replacement declared wait changed the wake identity: $(cat "$state/.wake-queue")"
@@ -2295,7 +2297,7 @@ test_live_declared_wait_churn_honors_the_resurface_throttle() {
       || fail "[$name] a parked worker did not re-surface once its re-surface window elapsed"
     wakes=$(awk -F '\t' -v w="$window" '$3 == "stale" && $4 == w { n++ } END { print n + 0 }' \
       "$state/.wake-queue" 2>/dev/null || echo 0)
-    bare=$(awk -F '\t' -v w="$window" '$3 == "stale" && $4 == w && $5 == "stale: " w { n++ } END { print n + 0 }' \
+    bare=$(awk -F '\t' -v w="$window" -v p="$expected_payload" '$3 == "stale" && $4 == w && $5 == p { n++ } END { print n + 0 }' \
       "$state/.wake-queue" 2>/dev/null || echo 0)
     [ "$wakes" -eq 1 ] || fail "[$name] elapsed re-surface window produced $wakes wakes instead of one"
     [ "$bare" -eq 1 ] || fail "[$name] elapsed re-surface changed the wake identity: $(cat "$state/.wake-queue")"
@@ -2361,6 +2363,8 @@ test_secondmate_captain_held_resurfaces_in_normal_mode() {
   wait_for_exit "$pid" 100 || fail "watcher did not re-surface a captain-held secondmate"
   grep -F "stale: $window" "$out" >/dev/null || fail "captain-held secondmate did not emit a stale recheck"
   grep -F "awaiting the captain" "$out" >/dev/null || fail "captain-held secondmate recheck did not name the captain as the blocker: $(cat "$out")"
+  grep -F "$(printf 'stale\t%s\tneeds-decision:' "$window")" "$state/.wake-queue" >/dev/null \
+    || fail "captain-held stale recheck was not marked for main-only routing: $(cat "$state/.wake-queue")"
   grep -F "awaiting external" "$out" >/dev/null && fail "captain-held secondmate recheck claimed an external wait"
   grep -F "possible wedge" "$out" >/dev/null && fail "captain-held secondmate was mislabeled a wedge"
   unset FM_FAKE_CREW_STATE
@@ -3910,6 +3914,8 @@ test_heartbeat_backstop_surfaces_a_masked_status() {
   wait_for_exit "$pid" 100 \
     || fail "heartbeat backstop missed a decision hidden behind a later working: line"
   grep -Fx "heartbeat" "$out" >/dev/null || fail "backstop did not exit with a heartbeat wake"
+  grep -F "$(printf 'heartbeat\theartbeat\tneeds-decision:heartbeat')" "$state/.wake-queue" >/dev/null \
+    || fail "decision-bearing heartbeat was not marked for main-only routing: $(cat "$state/.wake-queue")"
   [ "$(status_presentation_marker_offset "$state/.hb-surfaced-miss" "$state/miss.status")" = \
     "$(size_of "$state/miss.status")" ] \
     || fail "backstop did not record the masked status as surfaced through its end"

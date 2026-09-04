@@ -138,9 +138,23 @@ mark_surface_reported() {  # <status-file> <reported-signature>
   status_presentation_marker_report "$(_hb_surfaced_path "$task")" "$2"
 }
 
+fm_wake_append_stale() {  # <window> <reason> [main-only]
+  local window=$1 reason=$2 main_only=${3:-0} task statusf last payload
+  task=$(window_to_task "$window" "$STATE")
+  statusf="$STATE/$task.status"
+  last=$(last_status_line "$statusf")
+  if [ "$main_only" -eq 1 ] || [ "$(status_line_verb "$last")" = needs-decision ] \
+    || status_is_captain_held "$last"; then
+    payload="needs-decision:$reason"
+  else
+    payload=$reason
+  fi
+  fm_wake_append stale "$window" "$payload"
+}
+
 # Act on a fresh actionable transition from a push-capable backend.
 handle_push_transition() {  # <backend> <session> <record>
-  local backend=$1 session=$2 record=$3 pane_id to window task reason span_record rest surface_end='' surface_ident=''
+  local backend=$1 session=$2 record=$3 pane_id to window task reason span_record rest surface_end='' surface_ident='' needs_decision=0
   pane_id=$(fm_transition_pane_id "$record")
   to=$(fm_transition_to_status "$record")
   [ -n "$pane_id" ] || { sleep 1; return; }
@@ -155,13 +169,14 @@ handle_push_transition() {  # <backend> <session> <record>
     fm_backend_commit_transition "$backend" "$STATE" "$session" "$record" || exit 1
     return
   fi
-  span_record=$(status_span_first_actionable_record "$STATE/$task.status" \
-    "$(hb_surfaced_offset "$task")")
+  span_record=''
+  status_span_first_actionable_record "$STATE/$task.status" \
+    "$(hb_surfaced_offset "$task")" span_record needs_decision
   case $? in
     0|1) surface_end=${span_record%%$'\t'*}; rest=${span_record#*$'\t'}; surface_ident=${rest%%$'\t'*} ;;
   esac
   reason="stale: $window (herdr: agent $to - waiting on human, escalated immediately, not via wedge timer)"
-  fm_wake_append stale "$window" "$reason" || exit 1
+  fm_wake_append_stale "$window" "$reason" "$needs_decision" || exit 1
   fm_backend_commit_transition "$backend" "$STATE" "$session" "$record" || exit 1
   mark_surfaced "$STATE/$task.status" "$surface_end" "$surface_ident"
   wake "$reason"

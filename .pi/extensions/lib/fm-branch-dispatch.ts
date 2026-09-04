@@ -55,8 +55,8 @@ export interface UnreadWakeScope {
    */
   corrupted: boolean;
   /**
-   * The exact "key" field (status-file basename) of every signal row this scan
-   * excluded because its payload is "needs-decision:"-prefixed
+   * The exact "key" field of every row this scan excluded because its payload
+   * is "needs-decision:"-prefixed
    * (bin/fm-watch.sh's signal_files_actionable). fm-primary-pi-watch.ts's
    * offerWakeToBranch cross-references this against the current trigger's own
    * file list so a needs-decision trigger is forced to main exactly like a
@@ -165,6 +165,11 @@ export function scopeForUnreadWake(state: string, heartbeat: boolean): UnreadWak
     const seq = fields[1];
     const kind = fields[2];
     const key = fields[3];
+    const payload = fields[4] ?? "";
+    if (/^needs-decision:/.test(payload)) {
+      needsDecisionKeys.push(key);
+      continue;
+    }
     if (kind === "heartbeat") {
       if (heartbeat) eligibleSeqs.push(seq);
       continue;
@@ -178,16 +183,6 @@ export function scopeForUnreadWake(state: string, heartbeat: boolean): UnreadWak
     let project = "";
     let task = "";
     if (kind === "signal") {
-      const payload = fields[4] ?? "";
-      if (/^needs-decision:/.test(payload)) {
-        // Always main-owned, exactly like a check-kind row above: a
-        // needs-decision status append must reach main directly rather than
-        // taking the supervision-branch hop, so it is excluded from what the
-        // branch may claim without vetoing the rest of the scan
-        // (docs/pi-supervision-branch.md "Autonomy").
-        needsDecisionKeys.push(key);
-        continue;
-      }
       task = key.replace(/\.(?:status|turn-ended)$/, "");
       project = metadata.get(task) ?? "";
     } else if (kind === "stale") {

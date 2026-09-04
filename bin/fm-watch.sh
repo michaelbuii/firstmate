@@ -366,7 +366,7 @@ inbox_steer_check() {  # <window> <task>
         fi
         if [ -d "${rec%/*}" ]; then
           reason="stale: $w (steering-inbox ladder bookkeeping unwritable: ${rec%/*}/.ring-state cannot be written while $rec stays unhandled; the doorbell cannot advance toward escalation - inspect the inbox directory)"
-          fm_wake_append stale "$w" "$reason" || exit 1
+          fm_wake_append_stale "$w" "$reason" || exit 1
           wake "$reason"
         fi
       fi
@@ -378,7 +378,7 @@ inbox_steer_check() {  # <window> <task>
         fm_task_inbox_due_action "$STATE" "$task" >/dev/null || true
         return 0
       fi
-      fm_wake_append stale "$w" "$reason" || exit 1
+      fm_wake_append_stale "$w" "$reason" || exit 1
       if ! fm_task_inbox_record_escalated "$STATE" "$task" "$rec"; then
         echo "error: stale wake was queued for $task but its inbox escalation marker could not be written" >&2
         exit 1
@@ -710,7 +710,7 @@ resurface_absorbed() {  # <window> <throttle-marker> <age> <reason> [scope]
     [ "$age" -ge "$PAUSE_RESURFACE_SECS" ] || return 0
     [ "$(age_of "$throttle")" -ge "$PAUSE_RESURFACE_SECS" ] || return 0   # 999999 when no prior re-surface
   fi
-  fm_wake_append stale "$win" "$reason" || exit 1
+  fm_wake_append_stale "$win" "$reason" || exit 1
   if [ -n "$scope" ]; then printf '%s' "$scope" > "$throttle"; else date +%s > "$throttle"; fi
   wake "$reason"
 }
@@ -784,7 +784,7 @@ wedge_timer_check() {  # <window> <since-file> <triage-label> <escalation-count-
         if [ "$n" -ge "$FM_WEDGE_DEMAND_INSPECT_COUNT" ]; then
           reason="stale: $win (idle ${age}s, possible wedge, escalation $n, demand-deep-inspection: same pane has wedge-escalated $n times in a row - do not re-absorb on the run-step/pane state alone)"
         fi
-        fm_wake_append stale "$win" "$reason" || exit 1
+        fm_wake_append_stale "$win" "$reason" || exit 1
         rm -f "$since_file"
         clear_write_tracking "$(window_key "$win")"
         wake "$reason"
@@ -889,7 +889,7 @@ busy_turn_bound_check() {  # <window> <task> <hash> <since-file> <escalation-fil
       clear_write_tracking "$key"
       declared="declared:$(fm_wake_signal_sig "$statusf" || true)"
       if [ "$(cat "$STATE/.stale-$key" 2>/dev/null || true)" != "$declared" ]; then
-        fm_wake_append stale "$win" "stale: $win" || exit 1
+        fm_wake_append_stale "$win" "stale: $win" || exit 1
         printf '%s' "$declared" > "$STATE/.stale-$key"
         wake "stale: $win"
       fi
@@ -1013,7 +1013,7 @@ surface_nonterminal_stale() {  # <window> <hash>
     fi
   fi
   if [ "$throttled" -ne 0 ]; then
-    fm_wake_append stale "$win" "stale: $win" || exit 1
+    fm_wake_append_stale "$win" "stale: $win" || exit 1
   fi
   printf '%s' "$h" > "$STATE/.stale-$key"
   rm -f "$STATE/.stale-since-$key"
@@ -1283,12 +1283,14 @@ EOF
 # is absorbed; it surfaces only an event the per-wake path absorbed by mistake -
 # the fail-safe backstop.
 heartbeat_scan_finds_actionable() {
-  local f task record rest endpoint ident rc found=1 sig marker
+  local f task record rest endpoint ident needs_decision rc found=1 sig marker
   FM_HEARTBEAT_SURFACE_ENDPOINTS=''
+  FM_HEARTBEAT_NEEDS_DECISION=0
   for f in "$STATE"/*.status; do
     [ -e "$f" ] || [ -L "$f" ] || continue
     task=$(basename "$f"); task="${task%.status}"
-    record=$(status_span_first_actionable_record "$f" "$(hb_surfaced_offset "$task")")
+    record=''; needs_decision=0
+    status_span_first_actionable_record "$f" "$(hb_surfaced_offset "$task")" record needs_decision
     rc=$?
     [ "$rc" -eq 1 ] && [ -z "$record" ] && continue
     if [ "$rc" -eq 2 ]; then
@@ -1301,7 +1303,10 @@ heartbeat_scan_finds_actionable() {
     fi
     endpoint=${record%%$'\t'*}; rest=${record#*$'\t'}; ident=${rest%%$'\t'*}
     FM_HEARTBEAT_SURFACE_ENDPOINTS="${FM_HEARTBEAT_SURFACE_ENDPOINTS}${f}"$'\t'"${endpoint}"$'\t'"${ident}"$'\n'
-    [ "$rc" -eq 0 ] && found=0
+    if [ "$rc" -eq 0 ]; then
+      found=0
+      [ "$needs_decision" -eq 0 ] || FM_HEARTBEAT_NEEDS_DECISION=1
+    fi
   done
   return "$found"
 }
@@ -1881,7 +1886,7 @@ EOF
         elif afk_present; then
           # Daemon owns triage: one-shot per distinct stale hash, as before.
           if [ "$(cat "$sf" 2>/dev/null || true)" != "$h" ]; then
-            fm_wake_append stale "$w" "stale: $w" || exit 1
+            fm_wake_append_stale "$w" "stale: $w" || exit 1
             printf '%s' "$h" > "$sf"
             wake "stale: $w"
           fi
@@ -1907,7 +1912,7 @@ EOF
               clear_write_tracking "$key"
               triage_log "absorbed stale (provably working, overriding a stale captain-relevant status): $w"
             else
-              fm_wake_append stale "$w" "stale: $w" || exit 1
+              fm_wake_append_stale "$w" "stale: $w" || exit 1
               printf '%s' "$h" > "$sf"
               rm -f "$ssf"
               clear_write_tracking "$key"
@@ -2053,7 +2058,9 @@ EOF
       # Enqueue first, then record every status log surfaced through its end so the
       # next heartbeat does not re-fire it (enqueue-before-suppress preserved);
       # this wake sends firstmate to the whole fleet, so every log is read.
-      fm_wake_append heartbeat heartbeat heartbeat || exit 1
+      heartbeat_reason=heartbeat
+      [ "$FM_HEARTBEAT_NEEDS_DECISION" -eq 0 ] || heartbeat_reason=needs-decision:heartbeat
+      fm_wake_append heartbeat heartbeat "$heartbeat_reason" || exit 1
       touch "$STATE/.last-heartbeat"
       mark_all_captain_relevant_surfaced || true
       wake "heartbeat"

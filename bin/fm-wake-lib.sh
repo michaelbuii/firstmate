@@ -1623,8 +1623,11 @@ fm_wake_restore_queue() {
 
 fm_wake_print_deduped() {
   local file=$1
-  awk -F '\t' '
+  awk -F '\t' 'BEGIN { OFS = "\t" }
     NF >= 5 {
+      if (($3 == "stale" || $3 == "heartbeat") && $5 ~ /^needs-decision:/) {
+        sub(/^needs-decision:/, "", $5)
+      }
       dedupe = $3 SUBSEP $4
       if ($3 == "heartbeat") {
         dedupe = "heartbeat"

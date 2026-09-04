@@ -3668,6 +3668,16 @@ const needsDecisionOnly = scopeForUnreadWake(state, false);
 if (needsDecisionOnly.eligible || needsDecisionOnly.eligibleSeqs.length !== 0 || needsDecisionOnly.corrupted) {
   throw new Error(`a needs-decision-only queue must be ordinary main-only absence: ${JSON.stringify(needsDecisionOnly)}`);
 }
+for (const row of [
+  "1\t1\tstale\tfm-window\tneeds-decision:stale: fm-window",
+  "1\t1\theartbeat\theartbeat\tneeds-decision:heartbeat",
+]) {
+  writeFileSync(`${state}/.wake-queue`, row);
+  const scope = scopeForUnreadWake(state, row.includes("\theartbeat\t"));
+  if (scope.eligible || scope.eligibleSeqs.length !== 0 || scope.corrupted || scope.needsDecisionKeys.length !== 1) {
+    throw new Error(`a decision-bearing stale or heartbeat row was not main-only: ${row} -> ${JSON.stringify(scope)}`);
+  }
+}
 
 writeFileSync(
   `${state}/.wake-queue`,

@@ -616,14 +616,14 @@ export default function (pi: ExtensionAPI) {
     // scope.needsDecisionKeys (the status-file basenames scopeForUnreadWake
     // just excluded for a needs-decision payload) to detect that THIS trigger
     // is one of them.
-    const isNeedsDecisionTrigger =
-      scope.needsDecisionKeys.length > 0 &&
-      /^signal:/.test(message) &&
-      message
-        .slice("signal:".length)
-        .split(/\s+/)
-        .filter(Boolean)
-        .some((path) => scope.needsDecisionKeys.includes(path.split("/").pop() ?? path));
+    const triggerKeys = /^signal:/.test(message)
+      ? message.slice("signal:".length).split(/\s+/).filter(Boolean).map((path) => path.split("/").pop() ?? path)
+      : /^stale:/.test(message)
+        ? [message.slice("stale:".length).trim().split(/\s+/)[0] ?? ""]
+        : heartbeat
+          ? ["heartbeat"]
+          : [];
+    const isNeedsDecisionTrigger = triggerKeys.some((key) => scope.needsDecisionKeys.includes(key));
     const eligible = !isCheckTrigger && !isNeedsDecisionTrigger && scope.eligible;
     const offer = createBranchDispatchOffer(message, scope.projects, heartbeat, eligible);
     pi.events?.emit?.(FM_BRANCH_DISPATCH_EVENT, offer);

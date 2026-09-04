@@ -61,6 +61,14 @@ pass "handle_push_transition: a blocked crew enqueues a stale wake naming its wi
 
 reset_state
 fm_write_meta "$STATE_DIR/tk1.meta" "window=default:wG:pQ" "backend=herdr" "kind=ship"
+printf 'needs-decision: choose a release target\nworking: awaiting the transition\n' > "$STATE_DIR/tk1.status"
+handle_push_transition herdr default "$(mkrec wG:pQ blocked)"
+grep -F "$(printf 'stale\tdefault:wG:pQ\tneeds-decision:stale:')" "$STATE_DIR/.wake-queue" >/dev/null \
+  || fail "a decision-bearing push transition was not marked for main-only routing: $(cat "$STATE_DIR/.wake-queue")"
+pass "handle_push_transition: a decision-bearing stale wake is marked main-only"
+
+reset_state
+fm_write_meta "$STATE_DIR/tk1.meta" "window=default:wG:pQ" "backend=herdr" "kind=ship"
 (
   # shellcheck disable=SC2329 # Runtime override called by the isolated production owner.
   fm_wake_append() { return 1; }
