@@ -3767,8 +3767,8 @@ if (heartbeatUnresolvable.eligible || !heartbeatUnresolvable.corrupted) {
 writeFileSync(
   `${state}/.wake-queue`,
   [
-    "1\t1\theartbeat\theartbeat\theartbeat",
-    "1\t2\tinvented\tsomething\tinvented: not a kind fm_wake_append emits",
+    "1\t1\tstale\tfm-window\tstale: fm-window",
+    "1\t2\tinvented\tsomething\tneeds-decision: marked but not a kind fm_wake_append emits",
   ].join("\n"),
 );
 const heartbeatUnknownKind = scopeForUnreadWake(state, true);

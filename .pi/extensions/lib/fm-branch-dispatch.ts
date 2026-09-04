@@ -166,6 +166,7 @@ export function scopeForUnreadWake(state: string, heartbeat: boolean): UnreadWak
     const kind = fields[2];
     const key = fields[3];
     const payload = fields[4] ?? "";
+    if (kind !== "signal" && kind !== "stale" && kind !== "check" && kind !== "heartbeat") return UNSAFE_SCOPE;
     if (/^needs-decision:/.test(payload)) {
       needsDecisionKeys.push(key);
       continue;
@@ -188,10 +189,6 @@ export function scopeForUnreadWake(state: string, heartbeat: boolean): UnreadWak
     } else if (kind === "stale") {
       task = taskByKey.get(key) ?? taskByKey.get(key.replace(/^fm-/, "")) ?? "";
       project = metadata.get(key) ?? metadata.get(key.replace(/^fm-/, "")) ?? "";
-    } else {
-      // A kind fm_wake_append never emits: structural corruption, not an
-      // ordinary main-only row.
-      return UNSAFE_SCOPE;
     }
     if (!project || !task) return UNSAFE_SCOPE;
     projects.add(project);
