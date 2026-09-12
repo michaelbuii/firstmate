@@ -66,7 +66,10 @@ The supervision branch itself is Pi-only by construction:
   A producer can still append a row in the instant between that final check and drain startup; this accepted residual follows the confused-agent-grade boundary above rather than claiming adversarial queue isolation.
   A legacy away daemon flag and a broken branch between its bounded recovery probes keep today's wake-to-main behavior; the away-posture record alone leaves the branch active.
 
-Completed scout cleanup is automatic only after `bin/fm-crew-state.sh <task>` emits `state: done` from a matching no-mistakes run for a `kind=scout` record; a raw `done:` status event is never enough. This preserves the existing trusted-terminal-source boundary: a non-Codex scout can use that existing run source, while Codex remains pane-only and emits `unknown codex-unverified` even after a completion status. That unknown result retains the scout and requires the branch to report unverified completion for reconciliation; it must not fall back to the status line or invent a Codex classifier. Ordinary `bin/fm-teardown.sh` remains the sole completion-gate authority once a trusted terminal state exists.
+Completed scout cleanup is automatic only after `bin/fm-crew-state.sh <task>` emits `state: done` from a matching no-mistakes run for a `kind=scout` record; a raw `done:` status event is never enough.
+This preserves the existing trusted-terminal-source boundary: a non-Codex scout can use that existing run source, while Codex remains pane-only and emits `unknown codex-unverified` even after a completion status.
+That unknown result retains the scout and requires the branch to report unverified completion for reconciliation; it must not fall back to the status line or invent a Codex classifier.
+Ordinary `bin/fm-teardown.sh` remains the sole completion-gate authority once a trusted terminal state exists.
 
 ## Off-thread delivery
 
