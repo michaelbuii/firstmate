@@ -2788,6 +2788,12 @@ EOF
       exit 1
     fi
     T="$HERDR_SES:$HERDR_PANE_ID"
+    # Projection creation, ordering, and journal binding are complete.
+    # Do not hold the shared session lock while this worker obtains its
+    # isolated copy and starts: another home recovering an exact husk must
+    # serialize behind those mutations, not fail after the bounded wait.
+    # spawn_abort_cleanup reacquires this lock before any later rollback.
+    spawn_herdr_presentation_order_lock_release
     ;;
   zellij)
     ZELLIJ_SES=$(fm_backend_zellij_container_ensure) || exit 1
