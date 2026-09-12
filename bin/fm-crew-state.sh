@@ -75,9 +75,11 @@
 #      running/fixing with recent reported activity: a killed or timed-out drive
 #      call is not daemon death, so that claim is answered by steering the crew
 #      to reattach, not by escalating.
-#   4. No run for this crew (pre-validation, or kind=scout): fall back to the
-#      recorded backend's pane busy state, then the status log's last line only
-#      when its verb maps to a recognized run-state. Decision-only events such as
+#   4. No run for this crew (pre-validation): fall back to the recorded
+#      backend's pane busy state, then the status log's last line only when its
+#      verb maps to a recognized run-state. A scout's `done:` status is not a
+#      trusted terminal source, so it remains unknown until a matching
+#      no-mistakes run establishes completion. Decision-only events such as
 #      `resolved` never become current state or detail.
 #   5. Missing meta or torn-down worktree: report unknown · none. If no run is
 #      attributed to this crew, a dead endpoint also reports unknown · none rather
@@ -567,9 +569,13 @@ HAVE_RUN=0
 # the TOON field parsing entirely for this crew.
 RUN_SOURCE=full
 COARSE_STATUS=""
-# Scouts and secondmates never drive a no-mistakes validation of their own
-# worktree, so skip the lookup for them and read state from pane/log directly.
-if [ "$KIND" = ship ] && [ -n "$CREW_BRANCH" ] && command -v no-mistakes >/dev/null 2>&1; then
+# Secondmates never drive a no-mistakes validation of their own worktree.
+# Scouts may have a matching completed run, which is the only existing trusted
+# terminal source for automatic scout cleanup. Codex remains pane-only: its
+# semantic classifier deliberately returns unknown codex-unverified instead of
+# treating a completion status as terminal truth.
+if { [ "$KIND" = ship ] || { [ "$KIND" = scout ] && [ "$HARNESS" != codex ]; }; } \
+  && [ -n "$CREW_BRANCH" ] && command -v no-mistakes >/dev/null 2>&1; then
   RUN_OUT=$(nm_run axi status)
   if [ -n "$RUN_OUT" ]; then
     run_branch=$(strip_quotes "$(nm_field branch)")
@@ -851,6 +857,9 @@ fi
 # `unknown` verdict as the "not a state" test needs no second verb list here.
 if [ -n "$LOG_VERB" ]; then
   LOG_STATE=$(map_log_state "$LOG_LINE")
+  if [ "$KIND" = scout ] && [ "$LOG_STATE" = done ]; then
+    emit unknown status-log "unverified scout completion status; awaiting trusted terminal state"
+  fi
   if [ "$LOG_STATE" != unknown ]; then
     emit "$LOG_STATE" status-log "$(status_line_note "$LOG_LINE")"
   fi
