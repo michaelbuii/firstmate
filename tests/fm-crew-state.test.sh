@@ -1834,6 +1834,23 @@ test_scout_skips_run_lookup() {
   pass "scout skips the run lookup"
 }
 
+test_completed_codex_scout_has_no_automatic_cleanup_authority() {
+  reset_fakes
+  local d; d=$(new_case codex-scout-completion)
+  make_repo_on_branch "$d/wt" fm/scout-codex
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/scout-codex.meta" "window=fm:fm-scout-codex" "worktree=$d/wt" "kind=scout" \
+    "harness=codex"
+  printf 'done: investigation report written\n' > "$d/state/scout-codex.status"
+
+  local out; out=$(run_crew_state "$d" scout-codex)
+  assert_contains "$out" "state: unknown" "unverified Codex completion must not be done"
+  assert_contains "$out" "source: pane" "Codex completion remains a pane-state verdict"
+  assert_contains "$out" "unknown codex-unverified" "Codex uncertainty is surfaced for reconciliation"
+  assert_not_contains "$out" "state: done" "a done status event must not authorize Codex scout cleanup"
+  pass "completed Codex scout remains retained pending reconciliation"
+}
+
 # (j) torn-down worktree and missing meta are graceful (unknown/none, exit 0)
 test_torn_down_worktree() {
   reset_fakes
@@ -2483,6 +2500,7 @@ test_dead_window_still_reports_terminal_run_step
 test_dead_window_still_reports_active_run_step
 test_no_timeout_uses_perl_bound
 test_scout_skips_run_lookup
+test_completed_codex_scout_has_no_automatic_cleanup_authority
 test_torn_down_worktree
 test_remote_alive_with_log_uses_status_log
 test_remote_alive_idle_is_healthy_not_gone
