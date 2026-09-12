@@ -857,7 +857,7 @@ fi
 # `unknown` verdict as the "not a state" test needs no second verb list here.
 if [ -n "$LOG_VERB" ]; then
   LOG_STATE=$(map_log_state "$LOG_LINE")
-  if [ "$KIND" = scout ] && [ "$LOG_STATE" = done ]; then
+  if [ "$KIND" = scout ] && [ "$LOG_STATE" = "done" ]; then
     emit unknown status-log "unverified scout completion status; awaiting trusted terminal state"
   fi
   if [ "$LOG_STATE" != unknown ]; then
