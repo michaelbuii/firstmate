@@ -628,7 +628,7 @@ EOF
       and .paths.report.present == true
   ' >/dev/null || fail "bold task did not join to override-backed backlog and report"
   view=$(PATH="$fakebin:$PATH" FM_HOME="$home" FM_DATA_OVERRIDE="$data" FM_PROJECTS_OVERRIDE="$projects" "$VIEW")
-  assert_contains "$view" "| bold-task | done / status-log | scout | alpha | tmux | present | $data/bold-task/report.md" \
+  assert_contains "$view" "| bold-task | unknown / status-log | scout | alpha | tmux | present | $data/bold-task/report.md" \
     "view should render bold in-flight row from snapshot"
   assert_contains "$view" "| blocked-reason | Blocked Reason | beta | ship | queued-comma - waits on queued-comma | - |" \
     "view should render blocked reason without title metadata"
@@ -884,15 +884,10 @@ test_open_decision_clears_on_keyed_resolution() {
   pass "durable fold clears a decision only on a keyed resolution"
 }
 
-# A COMPLETED scout report must never be read as a pending decision. A scout that
-# raised a needs-decision and then finished (done) - its report delivered, its
-# decision either answered or captured in the report for the captain - must surface
-# only as a report POINTER, not a reopened pending decision, even when the report
-# body and the stale status line contain decision-like prose. This is the Lavish-103
-# defect: a terminal single-owner task's stale, never-keyed-resolved needs-decision
-# must not linger as pending. Decisions come purely from the keyed fold reconciled
-# against the crew lifecycle; report prose never opens or reopens a decision.
-test_completed_scout_report_is_pointer_not_pending() {
+# A status-only scout `done:` event is not trusted terminal state. Its report
+# remains visible, but a preceding unresolved decision remains actionable for
+# reconciliation; report prose itself still neither opens nor resolves it.
+test_unverified_scout_completion_retains_pending_decision() {
   local home fakebin out
   home=$(make_home completed-scout)
   mkdir -p "$home/projects/scout-wt" "$home/data/lavish-103"
@@ -904,21 +899,22 @@ test_completed_scout_report_is_pointer_not_pending() {
     "kind=scout" \
     "mode=scout"
   record_claude_idle "$home/state" lavish-103
-  # Stale needs-decision, then the scout finished (done). No keyed resolution.
+  # Unresolved needs-decision followed only by an unverified done status.
   printf 'needs-decision: adopt approach A or B for Lavish issue 103\n' > "$home/state/lavish-103.status"
   printf 'done: report ready at data/lavish-103/report.md\n' >> "$home/state/lavish-103.status"
-  # Completed report whose PROSE reads like the decision.
+  # The report prose is not itself a decision-state transition.
   printf '# Lavish 103\nThe open question is whether to adopt approach A or B.\nThis needs a captain decision. Recommendation: A.\n' > "$home/data/lavish-103/report.md"
   fakebin=$(make_fakebin "$home")
   out=$(PATH="$fakebin:$PATH" FM_HOME="$home" "$SNAPSHOT" --json)
   printf '%s' "$out" | jq -e '
     .tasks[] | select(.id == "lavish-103")
-    | .current_state.state == "done"
-      and .hints.pending_decision == false
-      and (.hints.open_decisions | length) == 0
+    | .current_state.state == "unknown"
+      and (.current_state.detail | contains("unverified scout completion"))
+      and .hints.pending_decision == true
+      and (.hints.open_decisions | length) == 1
       and .hints.scout_report_present == true
-  ' >/dev/null || fail "a completed scout report must be a pointer, not a pending decision: $out"
-  pass "a completed scout's stale decision surfaces as a report pointer, not pending"
+  ' >/dev/null || fail "a status-only scout completion must retain reconciliation evidence: $out"
+  pass "an unverified scout completion retains its report and pending decision"
 }
 
 # The complementary safety property: a scout still PARKED at a decision (its last
@@ -1057,7 +1053,7 @@ test_open_decision_survives_later_unrelated_event
 test_secondmate_open_decision_survives_live_endpoint
 test_open_decision_transfers_to_captain_hold
 test_open_decision_clears_on_keyed_resolution
-test_completed_scout_report_is_pointer_not_pending
+test_unverified_scout_completion_retains_pending_decision
 test_parked_scout_decision_stays_pending
 test_scout_reports_include_teardown_reports
 test_backlog_tasks_axi_forms_and_overrides

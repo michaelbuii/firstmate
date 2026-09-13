@@ -1571,11 +1571,10 @@ test_projection_and_toon_fail_closed() {
   pass "projection and TOON rendering failures exit nonzero with diagnostics"
 }
 
-# The Lavish-103 defect, end to end: a COMPLETED scout that raised a decision and
-# then finished (done), whose report body reads like that decision, must surface as
-# a report POINTER only - never in decisions_open. Report prose must never open or
-# reopen a pending decision; only the keyed durable state does.
-test_completed_scout_report_not_pending() {
+# A Codex scout's status-only completion remains unverified. Bearings exposes its
+# report plus the unknown reconciliation state without turning it into a captain
+# decision; report prose itself is not a decision-state transition.
+test_unverified_codex_scout_completion_surfaces_reconciliation() {
   local home fakebin json
   home=$(make_home completed-scout); write_fixture "$home"
   fakebin=$(make_fakebin "$home")
@@ -1592,10 +1591,12 @@ test_completed_scout_report_not_pending() {
   printf '# Lavish 103\nThe open question is whether to adopt approach A or B; this needs a captain decision.\n' > "$home/data/lavish-103/report.md"
   json=$(run "$home" "$fakebin" --json)
   printf '%s' "$json" | jq -e '
-    (.decisions_open | any(.[]; .id == "lavish-103") | not)
+    (.in_flight | any(.[]; .id == "lavish-103" and .state == "unknown"
+      and (.doing | contains("unknown codex-unverified"))))
       and (.reports | any(.[]; .id == "lavish-103"))
-  ' >/dev/null || fail "completed scout must be a report pointer, never a pending decision: $json"
-  pass "a completed scout with decision-like report prose is a pointer, not pending"
+      and (.decisions_open | any(.[]; .id == "lavish-103") | not)
+  ' >/dev/null || fail "unverified Codex scout completion must surface reconciliation without a false captain decision: $json"
+  pass "an unverified Codex scout surfaces reconciliation with its report"
 }
 
 # Recently Landed must include merges a secondmate managed. Those completion records
@@ -3216,7 +3217,7 @@ test_working_captain_holds_keep_their_bucket_surfaces
 test_active_children_project_independent_of_home_captain_hold
 test_mixed_secondmate_roles_partial_state_and_captain_readiness
 test_main_captain_readiness_matches_secondmate_projection
-test_completed_scout_report_not_pending
+test_unverified_codex_scout_completion_surfaces_reconciliation
 test_open_decision_surfaces_end_to_end
 test_report_pointers_surface
 test_queued_item_prose_never_hides_it

@@ -1814,24 +1814,55 @@ SH
   pass "no timeout command uses perl bound"
 }
 
-# (i) kind=scout skips the run lookup entirely (its deliverable is a report).
-test_scout_skips_run_lookup() {
+# (i) A non-Codex scout can use a matching no-mistakes terminal run as its
+# trusted completion source; its own report status is never that authority.
+test_completed_scout_uses_verified_run_for_cleanup_authority() {
   reset_fakes
   local d; d=$(new_case scout)
   make_repo_on_branch "$d/wt" fm/scout-j
   make_fakebin "$d" >/dev/null
   fm_write_meta "$d/state/scout-j.meta" "window=fm:fm-scout-j" "worktree=$d/wt" "kind=scout" \
     "harness=claude"
-  # Even if a run existed on this branch, a scout must not read it.
-  FM_FAKE_AXI_STATUS="$(run_running fm/scout-j)"
-  FM_FAKE_BUSY=1
-  local gen; gen=$("$ROOT/bin/fm-busy-event.sh" arm "$d/state" scout-j)
-  "$ROOT/bin/fm-busy-event.sh" apply "$d/state" scout-j busy --gen "$gen" \
-    --source claude-hook --event user-prompt-submit
+  printf 'done: investigation report written\n' > "$d/state/scout-j.status"
+  FM_FAKE_AXI_STATUS="$(run_passed fm/scout-j)"
   local out; out=$(run_crew_state "$d" scout-j)
-  assert_not_contains "$out" "source: run-step" "scout ignores no-mistakes run-step"
-  assert_contains "$out" "source: pane" "scout reads its semantic busy state"
-  pass "scout skips the run lookup"
+  assert_contains "$out" "state: done" "matching completed run authorizes scout cleanup"
+  assert_contains "$out" "source: run-step" "scout completion comes from the verified run"
+  pass "completed scout uses verified run for cleanup authority"
+}
+
+test_status_only_scout_completion_has_no_cleanup_authority() {
+  reset_fakes
+  local d; d=$(new_case scout-status-only)
+  make_repo_on_branch "$d/wt" fm/scout-status-only
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/scout-status-only.meta" "window=fm:fm-scout-status-only" "worktree=$d/wt" "kind=scout" \
+    "harness=claude"
+  arm_idle_record "$d/state" scout-status-only
+  printf 'done: investigation report written\n' > "$d/state/scout-status-only.status"
+
+  local out; out=$(run_crew_state "$d" scout-status-only)
+  assert_contains "$out" "state: unknown" "status-only scout completion is not trusted"
+  assert_contains "$out" "source: status-log" "untrusted completion identifies its status source"
+  assert_not_contains "$out" "state: done" "a done status event must not authorize scout cleanup"
+  pass "status-only scout completion remains retained pending reconciliation"
+}
+
+test_completed_codex_scout_has_no_automatic_cleanup_authority() {
+  reset_fakes
+  local d; d=$(new_case codex-scout-completion)
+  make_repo_on_branch "$d/wt" fm/scout-codex
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/scout-codex.meta" "window=fm:fm-scout-codex" "worktree=$d/wt" "kind=scout" \
+    "harness=codex"
+  printf 'done: investigation report written\n' > "$d/state/scout-codex.status"
+
+  local out; out=$(run_crew_state "$d" scout-codex)
+  assert_contains "$out" "state: unknown" "unverified Codex completion must not be done"
+  assert_contains "$out" "source: pane" "Codex completion remains a pane-state verdict"
+  assert_contains "$out" "unknown codex-unverified" "Codex uncertainty is surfaced for reconciliation"
+  assert_not_contains "$out" "state: done" "a done status event must not authorize Codex scout cleanup"
+  pass "completed Codex scout remains retained pending reconciliation"
 }
 
 # (j) torn-down worktree and missing meta are graceful (unknown/none, exit 0)
@@ -2482,7 +2513,9 @@ test_no_run_tmux_unreadable_reads_unreachable_not_gone
 test_dead_window_still_reports_terminal_run_step
 test_dead_window_still_reports_active_run_step
 test_no_timeout_uses_perl_bound
-test_scout_skips_run_lookup
+test_completed_scout_uses_verified_run_for_cleanup_authority
+test_status_only_scout_completion_has_no_cleanup_authority
+test_completed_codex_scout_has_no_automatic_cleanup_authority
 test_torn_down_worktree
 test_remote_alive_with_log_uses_status_log
 test_remote_alive_idle_is_healthy_not_gone
