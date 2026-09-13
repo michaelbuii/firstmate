@@ -116,6 +116,8 @@ An ambiguous response grants no mutation or cleanup authority.
 Protocol 16 exposes `workspace.move` over the named session socket but no CLI subcommand.
 `bin/backends/herdr-workspace-move.py` sends only that whitelisted method and verifies the complete returned workspace order.
 Projected children are placed in one contiguous block immediately after their owning home when the session layout, protocol, socket, `python3`, and machine-private per-session lock are all verifiable.
+That shared lock covers projection discovery, creation, ordering, and journal binding only, then releases before Treehouse obtains the isolated copy or the worker starts.
+A later abort reacquires it before rollback, so another home recovering an exact husk does not wait behind arbitrary copy creation or worker startup.
 Existing legacy child labels may extend an already adjacent block read-only but are never renamed or migrated.
 A foreign, ambiguous, detached, or manually interleaved child makes ordering skip with a warning rather than rewriting the layout.
 
