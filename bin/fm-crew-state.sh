@@ -128,6 +128,10 @@ case "$NM_TIMEOUT" in ''|*[!0-9]*) NM_TIMEOUT=10 ;; esac
 # entire history every call.
 FM_CREW_STATE_RUNS_LIMIT=${FM_CREW_STATE_RUNS_LIMIT:-200}
 case "$FM_CREW_STATE_RUNS_LIMIT" in ''|*[!0-9]*) FM_CREW_STATE_RUNS_LIMIT=200 ;; esac
+# A synchronous observational summary must not wait for a scout's validation
+# record. Its deferred reconciliation still uses the regular trusted lookup.
+SCOUT_RUN_LOOKUP=${FM_CREW_STATE_SCOUT_RUN_LOOKUP:-1}
+case "$SCOUT_RUN_LOOKUP" in 0|1) ;; *) SCOUT_RUN_LOOKUP=1 ;; esac
 SEP=' · '
 
 # Emit the one canonical line and exit 0. Detail is optional.
@@ -574,7 +578,8 @@ COARSE_STATUS=""
 # terminal source for automatic scout cleanup. Codex remains pane-only: its
 # semantic classifier deliberately returns unknown codex-unverified instead of
 # treating a completion status as terminal truth.
-if { [ "$KIND" = ship ] || { [ "$KIND" = scout ] && [ "$HARNESS" != codex ]; }; } \
+if { [ "$KIND" = ship ] || { [ "$KIND" = scout ] && [ "$HARNESS" != codex ] \
+  && [ "$SCOUT_RUN_LOOKUP" = 1 ]; }; } \
   && [ -n "$CREW_BRANCH" ] && command -v no-mistakes >/dev/null 2>&1; then
   RUN_OUT=$(nm_run axi status)
   if [ -n "$RUN_OUT" ]; then
