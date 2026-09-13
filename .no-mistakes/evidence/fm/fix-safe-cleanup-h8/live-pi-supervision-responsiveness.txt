@@ -1,0 +1,103 @@
+
+ Warning: Anthropic subscription auth is active. Third-party harness usage draws from extra usage and is billed per token, not your Claude plan limits. Manage extra usage at
+ https://claude.ai/settings/usage. Disable this warning in /settings.
+
+ Warning: tmux extended-keys is off. Modified Enter keys may not work. Add `set -g extended-keys on` to ~/.tmux.conf and restart tmux.
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+░▒▓ 🤖 sonnet-5 🧠 medium 📁 fm-pi-branch-responsiveness.LAAdB1/lab/project 🌿 no-git 🪟 ctx 0.0%/1.0m 🕒 18:40
+🔌 🔌 MCP: 1 server enabled
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+not ok - Pi 0.84.4 never drew its TUI in the idle arm
+
+ Warning: Anthropic subscription auth is active. Third-party harness usage draws from extra usage and is billed per token, not your Claude plan limits. Manage extra usage at
+ https://claude.ai/settings/usage. Disable this warning in /settings.
+
+ Warning: tmux extended-keys is off. Modified Enter keys may not work. Add `set -g extended-keys on` to ~/.tmux.conf and restart tmux.
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+░▒▓ 🤖 sonnet-5 🧠 medium 📁 fm-pi-branch-responsiveness.LAAdB1/lab/project 🌿 no-git 🪟 ctx 0.0%/1.0m 🕒 18:42
+🔌 🔌 MCP: 1 server enabled
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+not ok - Pi 0.84.4 never drew its TUI in the delivery arm
+not ok - the responsiveness probe produced no measurement against Pi 0.84.4

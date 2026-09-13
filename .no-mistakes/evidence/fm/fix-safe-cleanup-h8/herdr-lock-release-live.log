@@ -1,0 +1,19 @@
+LAB_SESSION=fm-lab-lock-release-19418-18196
+LOCK_PATH=/tmp/firstmate-herdr-presentation/order-114f86e2c36c651188c0b6a72b7140d9.lock
+spawned live-lock harness=sh kind=scout window=fm-lab-lock-release-19418-18196:w2:p2 worktree=/Users/michael.bui/.treehouse/project-d23e1f/1/project
+OBSERVATION=PASS lock-acquired-before-worker-start; WORKER=started
+WORKTREE=/Users/michael.bui/.treehouse/project-d23e1f/1/project
+complete: live-lock captain-call inventory reviewed
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/michael.bui/.no-mistakes/worktrees/4a24a4f26029/01M29KZBEQMGXKP8KZ2Z8W69J7/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/michael.bui/.no-mistakes/worktrees/4a24a4f26029/01M29KZBEQMGXKP8KZ2Z8W69J7/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+teardown: reaping leaked worktree process(es) for live-lock: 21128 24783 24811
+teardown: force-killing leaked worktree process(es) for live-lock: 21128
+🌳 Worktree returned to pool.
+teardown live-lock complete (window fm-lab-lock-release-19418-18196:w2:p2, worktree /Users/michael.bui/.treehouse/project-d23e1f/1/project)
+Backlog: live-lock just finished (this home keeps no markdown backlog at /private/var/folders/gl/z351_nk53lgf8q_lrq58r2nc0000gp/T/fm-live-lock-release.7wX4AW/home/data/backlog.md). Update /private/var/folders/gl/z351_nk53lgf8q_lrq58r2nc0000gp/T/fm-live-lock-release.7wX4AW/home/data/backlog.md - move live-lock to Done, keep Done to the 10 most recent, then re-scan Queued and dispatch only work whose blockers are gone and date is due.
+TEARDOWN=retired-worker; REPORT=preserved; MARKER=preserved-outside-worktree

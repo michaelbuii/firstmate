@@ -1,0 +1,50 @@
+
+ Warning: Anthropic subscription auth is active. Third-party harness usage draws from extra usage and is billed per token, not your Claude plan limits. Manage extra usage at
+ https://claude.ai/settings/usage. Disable this warning in /settings.
+
+ Warning: tmux extended-keys is off. Modified Enter keys may not work. Add `set -g extended-keys on` to ~/.tmux.conf and restart tmux.
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+░▒▓ 🤖 sonnet-5 🧠 medium 📁 01M29KZBEQMGXKP8KZ2Z8W69J7/.test-pi-extension-load-95205/project 🌿 detached 🪟 ctx 0.0%/1.0m 🕒 18:42
+🔌 pstack: idle • 🔌 🔌 MCP: 1 server enabled
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,4 @@
+Live Codex scout completion check
+status event: done: investigation report written
+current-state result: state: unknown · source: pane · harness state unavailable (unknown codex-unverified)
+cleanup authorization: retained (state is not done)
