@@ -223,6 +223,11 @@ function lockOwnership(): LockOwnership {
 
 function markLoaded(): void {
   if (lockOwnership() === "other") return;
+  let lockPid = "";
+  try {
+    lockPid = readFileSync(`${state}/.lock`, "utf8").trim();
+  } catch {}
+  if (lockPid && String(process.pid) !== lockPid) return;
   mkdirSync(state, { recursive: true });
   writeFileSync(marker, `${extensionVersion}\n${process.pid}\n`);
 }

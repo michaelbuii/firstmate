@@ -28,7 +28,7 @@
 // for the Run tier.
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 // Shared with the Pi extensions; the owner resolves bin/fm-operational-input.sh
@@ -89,7 +89,14 @@ function lockOwnership(): LockOwnership {
 }
 
 function markLoaded(): void {
-  if (!existsSync(state) || lockOwnership() === "other") return;
+  const ownership = lockOwnership();
+  if (ownership === "other") return;
+  let lockPid = "";
+  try {
+    lockPid = readFileSync(`${state}/.lock`, "utf8").trim();
+  } catch {}
+  if (lockPid && String(process.pid) !== lockPid) return;
+  mkdirSync(state, { recursive: true });
   writeFileSync(marker, `${extensionVersion}\n${process.pid}\n`);
 }
 
@@ -461,6 +468,7 @@ async function claimSessionstartMessage(
 // payload: a true value allows the stop, which is what bounds omp to one
 // forced continuation per turn.
 function runGuard(stopHookActive: boolean): Promise<{ code: number; stderr: string }> {
+  markLoaded();
   return new Promise((resolveResult) => {
     const child = spawn(`${root}/bin/fm-turnend-guard.sh`, {
       stdio: ["pipe", "ignore", "pipe"],
@@ -548,6 +556,7 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.on?.("before_agent_start", async (_event, ctx) => {
+    markLoaded();
     const generation = sessionstartGeneration;
     if (!generation) return undefined;
     const message = await claimSessionstartMessage(generation, ctx);
@@ -581,6 +590,7 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.on?.("tool_call", async (event) => {
+    markLoaded();
     if (!event || event.type !== "tool_call" || event.toolName !== "bash") return {};
     const command = String((event.input as { command?: unknown })?.command ?? "");
     if (!command) return {};

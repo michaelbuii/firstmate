@@ -1,6 +1,6 @@
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -55,7 +55,14 @@ function lockOwnership(): LockOwnership {
 }
 
 function markLoaded(): void {
-  if (!existsSync(state) || lockOwnership() === "other") return;
+  const ownership = lockOwnership();
+  if (ownership === "other") return;
+  let lockPid = "";
+  try {
+    lockPid = readFileSync(`${state}/.lock`, "utf8").trim();
+  } catch {}
+  if (lockPid && String(process.pid) !== lockPid) return;
+  mkdirSync(state, { recursive: true });
   writeFileSync(marker, `${extensionVersion}\n${process.pid}\n`);
 }
 
@@ -447,6 +454,7 @@ async function claimSessionstartMessage(
 }
 
 function runGuard(): Promise<{ code: number; stderr: string }> {
+  markLoaded();
   return new Promise((resolveResult) => {
     const invocation = firstmateShellInvocation(`${root}/bin/fm-turnend-guard.sh`, []);
     let child: ChildProcess;
@@ -555,6 +563,7 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.on?.("before_agent_start", async (_event, ctx) => {
+    markLoaded();
     const generation = sessionstartGeneration;
     if (!generation) return;
     const message = await claimSessionstartMessage(generation, ctx);
@@ -588,6 +597,7 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.on("tool_call", async (event) => {
+    markLoaded();
     if (event.type !== "tool_call" || event.toolName !== "bash") return {};
     const command = String((event.input as { command?: unknown })?.command ?? "");
     if (!command) return {};

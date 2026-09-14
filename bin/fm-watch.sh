@@ -2224,6 +2224,12 @@ EOF
               rm -f "$ssf"
               clear_write_tracking "$key"
               triage_log "absorbed stale (open captain call already surfaced for this status): $w"
+            elif [ -z "$STALE_WAIT_DECLARATION" ] && { [ "$(status_line_verb "$last")" = 'done' ] || [ "$(status_line_verb "$last")" = 'failed' ]; } \
+              && ! status_span_first_actionable_record "$STATE/$(window_to_task "$w" "$STATE").status" "$(hb_surfaced_offset "$task")" >/dev/null 2>&1; then
+              printf '%s' "$h" > "$sf"
+              rm -f "$ssf"
+              clear_write_tracking "$key"
+              triage_log "absorbed stale (completed task already surfaced): $w"
             else
               fm_wake_append stale "$w" "stale: $w" || exit 1
               stale_wait_record "$key"
