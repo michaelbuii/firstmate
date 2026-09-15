@@ -2227,6 +2227,7 @@ EOF
             else
               completed_already_surfaced=false
               if [ -z "$STALE_WAIT_DECLARATION" ] && { [ "$(status_line_verb "$last")" = 'done' ] || [ "$(status_line_verb "$last")" = 'failed' ]; }; then
+                # Only exit 1 proves a readable span has no new actionable record; exit 2 must surface rather than hide an unreadable completion.
                 status_span_first_actionable_record "$STATE/$(window_to_task "$w" "$STATE").status" "$(hb_surfaced_offset "$task")" >/dev/null 2>&1
                 [ "$?" -eq 1 ] && completed_already_surfaced=true
               fi
