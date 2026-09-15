@@ -121,7 +121,7 @@ wait_numeric_file() {
 # Portable mtime in epoch seconds. Platform-detected, never the `stat -f || stat -c`
 # fallback (which writes a partial filesystem dump on Linux; see fm-watch.sh).
 file_mtime() {
-  if [ "$(uname)" = Darwin ]; then stat -f %m "$1" 2>/dev/null; else stat -c %Y "$1" 2>/dev/null; fi
+  if [ "$(uname)" = Darwin ]; then /usr/bin/stat -f %m "$1" 2>/dev/null; else stat -c %Y "$1" 2>/dev/null; fi
 }
 
 # Set <file>'s mtime to exactly <epoch> seconds, for aging a busy-turn marker by
@@ -149,7 +149,7 @@ seen_sig() {
       printf 'v2\t%s\t%s@%s' "$reported" "$size" "$ident"
       ;;
     *)
-      if [ "$(uname)" = Darwin ]; then stat -f '%z:%Fm' "$1" 2>/dev/null; else stat -c '%s:%Y' "$1" 2>/dev/null; fi
+      if [ "$(uname)" = Darwin ]; then /usr/bin/stat -f '%z:%Fm' "$1" 2>/dev/null; else stat -c '%s:%Y' "$1" 2>/dev/null; fi
       ;;
   esac
 }
@@ -2018,7 +2018,7 @@ test_nonterminal_stale_paused_absorbed_then_resurfaced() {
   # status file, re-prime .seen-* to the new signature so the signal scan stays
   # quiet, and confirm it re-surfaces as a paused recheck - never a wedge.
   back=$(( $(date +%s) - 500 ))
-  if [ "$(uname)" = Darwin ]; then touch -mt "$(date -r "$back" '+%Y%m%d%H%M.%S')" "$statusf"
+  if [ "$(uname)" = Darwin ]; then touch -mt "$(/bin/date -r "$back" '+%Y%m%d%H%M.%S')" "$statusf"
   else touch -m -d "@$back" "$statusf"; fi
   sig=$(seen_sig "$statusf"); printf '%s' "$sig" > "$state/.seen-held_status"
   : > "$out"
@@ -2055,7 +2055,7 @@ test_exited_declared_pause_is_bounded_but_live_gate_surfaces() {
   printf 'window=%s\nkind=ship\nharness=grok\nbackend=tmux\n' "$window" > "$state/held.meta"
   printf 'paused: held per captain while an external decision is pending\n' > "$statusf"
   back=$(( $(date +%s) - 500 ))
-  if [ "$(uname)" = Darwin ]; then touch -mt "$(date -r "$back" '+%Y%m%d%H%M.%S')" "$statusf"
+  if [ "$(uname)" = Darwin ]; then touch -mt "$(/bin/date -r "$back" '+%Y%m%d%H%M.%S')" "$statusf"
   else touch -m -d "@$back" "$statusf"; fi
   sig=$(seen_sig "$statusf"); printf '%s' "$sig" > "$state/.seen-held_status"
   key=$(printf '%s' "$window" | tr ':/.' '___')
@@ -2101,7 +2101,7 @@ test_exited_declared_pause_is_bounded_but_live_gate_surfaces() {
   printf 'window=%s\nkind=ship\nharness=grok\nbackend=tmux\n' "$window" > "$state/held.meta"
   printf 'captain-held [key=route]: tracked by held-decision-route\n' > "$statusf"
   back=$(( $(date +%s) - 500 ))
-  if [ "$(uname)" = Darwin ]; then touch -mt "$(date -r "$back" '+%Y%m%d%H%M.%S')" "$statusf"
+  if [ "$(uname)" = Darwin ]; then touch -mt "$(/bin/date -r "$back" '+%Y%m%d%H%M.%S')" "$statusf"
   else touch -m -d "@$back" "$statusf"; fi
   sig=$(seen_sig "$statusf"); printf '%s' "$sig" > "$state/.seen-held_status"
   key=$(printf '%s' "$window" | tr ':/.' '___')
@@ -2186,7 +2186,7 @@ test_absorbed_replacement_wait_does_not_inherit_the_old_throttle() {
     printf 'window=%s\nkind=ship\nharness=grok\nbackend=tmux\n' "$window" > "$state/held.meta"
     printf '%s\n' "$initial" > "$statusf"
     back=$(( $(date +%s) - 500 ))
-    if [ "$(uname)" = Darwin ]; then touch -mt "$(date -r "$back" '+%Y%m%d%H%M.%S')" "$statusf"
+    if [ "$(uname)" = Darwin ]; then touch -mt "$(/bin/date -r "$back" '+%Y%m%d%H%M.%S')" "$statusf"
     else touch -m -d "@$back" "$statusf"; fi
     sig=$(seen_sig "$statusf"); printf '%s' "$sig" > "$state/.seen-held_status"
     key=$(printf '%s' "$window" | tr ':/.' '___')
@@ -2563,7 +2563,6 @@ test_stale_churn_without_a_captain_call_still_alarms() {
   command -v tasks-axi >/dev/null 2>&1 \
     || { echo "skip: tasks-axi not found (unheld stale alarm)"; return 0; }
   for spec in \
-    'unheld-delivery|done: PR https://example.invalid/pull/1 checks green' \
     'unheld-blocker|blocked: cannot reach the release host' \
     'unheld-worker-line|working: still tidying the branch'
   do
@@ -2583,6 +2582,37 @@ test_stale_churn_without_a_captain_call_still_alarms() {
     done
   done
   pass "a stale window with no open captain call keeps alarming on every new hash"
+}
+
+test_completed_delivery_pane_churn_is_absorbed_after_surfacing() {
+  local dir state out capture wakes
+  command -v tasks-axi >/dev/null 2>&1 \
+    || { echo "skip: tasks-axi not found (completed delivery stale absorb)"; return 0; }
+  dir=$(make_hold_home completed-delivery 'done: PR https://example.invalid/pull/1 checks green' nohold) \
+    || fail "could not build an unheld delivery fixture"
+  state="$dir/state"; out="$dir/watch.out"; capture="$dir/pane.txt"
+
+  # Round 1: first sight of the completed delivery surfaces
+  hold_watch_surface "$dir" "$out" "$capture" 'idle, elapsed 1s' \
+    || fail "first sight of completed delivery did not surface"
+  wakes=$(hold_stale_wakes "$state")
+  [ "$wakes" -eq 1 ] || fail "first sight produced $wakes wakes instead of one"
+  ack_stopped_cycle "$state" || fail "could not acknowledge first surface"
+
+  # Round 2: pane hash changes (clock advances), but status line is unchanged and already surfaced: absorbed
+  hold_watch_churn "$dir" "$out" "$capture" 'idle, elapsed 2s' 1 \
+    || fail "pane churn on completed delivery was not absorbed"
+  wakes=$(hold_stale_wakes "$state")
+  [ "$wakes" -eq 0 ] \
+    || fail "pane churn on completed delivery produced $wakes wakes instead of being absorbed"
+
+  # Round 3: newly actionable status line arrives -> surfaces!
+  printf 'done: PR https://example.invalid/pull/2 checks green\n' >> "$state/held-merge.status"
+  hold_watch_surface "$dir" "$out" "$capture" 'idle, elapsed 3s' \
+    || fail "newly actionable completion status did not surface"
+  grep -q "held-merge.status" "$state/.wake-queue" \
+    || fail "newly actionable completion status did not surface in queue: $(cat "$state/.wake-queue" 2>/dev/null)"
+  pass "completed delivery surfaces once, absorbs pane churn, and surfaces newly actionable outcomes"
 }
 
 
@@ -2675,7 +2705,7 @@ test_secondmate_paused_resurfaces_in_normal_mode() {
   printf 'window=%s\nkind=secondmate\n' "$window" > "$state/secondmate-held.meta"
   printf 'paused: awaiting the upstream release\n' > "$statusf"
   back=$(( $(date +%s) - 500 ))
-  if [ "$(uname)" = Darwin ]; then touch -mt "$(date -r "$back" '+%Y%m%d%H%M.%S')" "$statusf"
+  if [ "$(uname)" = Darwin ]; then touch -mt "$(/bin/date -r "$back" '+%Y%m%d%H%M.%S')" "$statusf"
   else touch -m -d "@$back" "$statusf"; fi
   sig=$(seen_sig "$statusf"); printf '%s' "$sig" > "$state/.seen-secondmate-held_status"
   key=$(printf '%s' "$window" | tr '.:/' '___')
@@ -2709,7 +2739,7 @@ test_secondmate_captain_held_resurfaces_in_normal_mode() {
   printf 'window=%s\nkind=secondmate\n' "$window" > "$state/secondmate-hold.meta"
   printf 'captain-held [key=route]: tracked by task-decision-route\n' > "$statusf"
   back=$(( $(date +%s) - 500 ))
-  if [ "$(uname)" = Darwin ]; then touch -mt "$(date -r "$back" '+%Y%m%d%H%M.%S')" "$statusf"
+  if [ "$(uname)" = Darwin ]; then touch -mt "$(/bin/date -r "$back" '+%Y%m%d%H%M.%S')" "$statusf"
   else touch -m -d "@$back" "$statusf"; fi
   sig=$(seen_sig "$statusf"); printf '%s' "$sig" > "$state/.seen-secondmate-hold_status"
   key=$(printf '%s' "$window" | tr '.:/' '___')
@@ -3301,7 +3331,7 @@ test_busy_declared_pause_is_rechecked_not_wedge_escalated() {
   # branch whose pause bookkeeping the bound must not wipe. It re-surfaces once
   # as a recheck, never as a wedge.
   back=$(( $(date +%s) - 500 ))
-  if [ "$(uname)" = Darwin ]; then touch -mt "$(date -r "$back" '+%Y%m%d%H%M.%S')" "$statusf"
+  if [ "$(uname)" = Darwin ]; then touch -mt "$(/bin/date -r "$back" '+%Y%m%d%H%M.%S')" "$statusf"
   else touch -m -d "@$back" "$statusf"; fi
   sig=$(seen_sig "$statusf"); printf '%s' "$sig" > "$state/.seen-review-scout_status"
   printf '%s' "$(hash_text "$(cat "$capture_file")")" > "$state/.hash-$key"
@@ -4424,7 +4454,7 @@ test_afk_paused_changed_pane_hands_off_plain_stale() {
   statusf="$state/afk-held.status"
   printf 'paused: awaiting the upstream tool release\n' > "$statusf"
   back=$(( $(date +%s) - 500 ))
-  if [ "$(uname)" = Darwin ]; then touch -mt "$(date -r "$back" '+%Y%m%d%H%M.%S')" "$statusf"
+  if [ "$(uname)" = Darwin ]; then touch -mt "$(/bin/date -r "$back" '+%Y%m%d%H%M.%S')" "$statusf"
   else touch -m -d "@$back" "$statusf"; fi
   sig=$(seen_sig "$statusf"); printf '%s' "$sig" > "$state/.seen-afk-held_status"
   date '+%s' > "$state/.afk"
@@ -4481,7 +4511,7 @@ test_captain_held_never_rechecked_while_away_record_exists() {
   printf 'window=%s\nkind=secondmate\n' "$window" > "$state/secondmate-hold.meta"
   printf 'captain-held [key=route]: tracked by task-decision-route\n' > "$statusf"
   back=$(( $(date +%s) - 500 ))
-  if [ "$(uname)" = Darwin ]; then touch -mt "$(date -r "$back" '+%Y%m%d%H%M.%S')" "$statusf"
+  if [ "$(uname)" = Darwin ]; then touch -mt "$(/bin/date -r "$back" '+%Y%m%d%H%M.%S')" "$statusf"
   else touch -m -d "@$back" "$statusf"; fi
   sig=$(seen_sig "$statusf"); printf '%s' "$sig" > "$state/.seen-secondmate-hold_status"
   key=$(printf '%s' "$window" | tr '.:/' '___')
@@ -4604,7 +4634,7 @@ paused_until_fixture() {  # <name> <until-epoch> <status-age-secs>
   printf 'window=%s\nkind=secondmate\n' "$window" > "$state/until.meta"
   printf 'paused: rate limit resets, until %s, then resuming\n' "$(iso_utc_at "$until")" > "$statusf"
   back=$(( $(date +%s) - age ))
-  if [ "$(uname)" = Darwin ]; then touch -mt "$(date -r "$back" '+%Y%m%d%H%M.%S')" "$statusf"
+  if [ "$(uname)" = Darwin ]; then touch -mt "$(/bin/date -r "$back" '+%Y%m%d%H%M.%S')" "$statusf"
   else touch -m -d "@$back" "$statusf"; fi
   printf '%s' "$(seen_sig "$statusf")" > "$state/.seen-until_status"
   key=$(printf '%s' "$window" | tr '.:/' '___')
@@ -4749,6 +4779,7 @@ test_live_declared_wait_churn_honors_the_resurface_throttle
 test_live_paused_until_controls_recheck_time
 test_open_captain_call_bounds_stale_churn
 test_stale_churn_without_a_captain_call_still_alarms
+test_completed_delivery_pane_churn_is_absorbed_after_surfacing
 test_failed_wake_append_does_not_arm_the_captain_hold_throttle
 test_reheld_captain_call_starts_its_own_resurface_window
 test_secondmate_paused_resurfaces_in_normal_mode

@@ -201,8 +201,12 @@ fi
 
 # No fresh watcher with tasks in flight is the dangerous state: emit a prominent,
 # bordered banner FIRST so it reads as an alarm, not a buried stderr line. Later
-# calls in the same episode get a one-line reminder only.
-if [ "$watcher_healthy" = false ]; then
+# calls in the same episode get a one-line reminder only. The supervision branch
+# cannot repair the watcher and lacks the fm_watch_arm_pi tool, so the alarm
+# stays silent for that actor to avoid false downtime summaries.
+if [ "$GUARD_ACTOR" = branch ]; then
+  :
+elif [ "$watcher_healthy" = false ]; then
   episode_key=$(fm_guard_stale_episode_key "$watcher_down_reason")
   episode_key=${episode_key%$'\n'}
   print_full_banner=0

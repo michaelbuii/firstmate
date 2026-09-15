@@ -802,6 +802,32 @@ test_branch_actor_is_not_told_to_drain_queued_wakes() {
   pass "fm-guard: the branch actor is never told to drain queued wakes while main still is"
 }
 
+test_branch_actor_is_never_shown_watcher_down_banner() {
+  local dir home out pid
+  dir=$(make_guard_case branch-actor-watcher-down)
+  home=$(case_home "$dir")
+  sleep 60 &
+  pid=$!
+  record_pi_extension_session "$dir" "$pid" watch || fail "could not record Pi extension session"
+  touch "$home/state/.last-watcher-beat"
+  out=$(run_guard_case_extension "$dir")
+  assert_contains "$out" "WATCHER DOWN - SUPERVISION IS OFF" \
+    "main must be warned that the watcher is down"
+  out=$(run_guard_case_extension_as_branch "$dir")
+  assert_not_contains "$out" "WATCHER DOWN - SUPERVISION IS OFF" \
+    "the branch actor must never be shown the watcher-down banner"
+  assert_not_contains "$out" "WARNING: watcher still down" \
+    "the branch actor must never be shown the watcher-down reminder"
+  out=$(run_guard_case_extension "$dir")
+  kill "$pid" 2>/dev/null || true
+  wait "$pid" 2>/dev/null || true
+  assert_not_contains "$out" "WATCHER DOWN - SUPERVISION IS OFF" \
+    "branch handling must not clear main's stale-banner episode"
+  assert_contains "$out" "full banner already printed this episode" \
+    "main must retain its stale-banner episode after branch handling"
+  pass "fm-guard: branch watcher-down checks leave main's stale-banner episode intact"
+}
+
 test_persistent_model_ignores_pi_extension_evidence() {
   local dir home out pid
   dir=$(make_guard_case persistent-ignores-pi-evidence)
@@ -880,6 +906,7 @@ test_extension_ownership_needs_every_signal
 test_extension_stale_beacon_alarms_despite_live_session
 test_extension_handoff_keeps_queued_wake_warning
 test_branch_actor_is_not_told_to_drain_queued_wakes
+test_branch_actor_is_never_shown_watcher_down_banner
 test_persistent_model_ignores_pi_extension_evidence
 test_extension_live_watcher_is_healthy_without_ownership_evidence
 test_autoarm_fresh_beacon_without_watcher_is_healthy

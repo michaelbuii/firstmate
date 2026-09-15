@@ -3001,6 +3001,100 @@ EOF
   pass "Pi process-exit cleanup stops the attached arm child"
 }
 
+test_child_process_does_not_overwrite_pi_extension_markers() {
+  local repo home out status
+  repo="$TMP_ROOT/pi-child-marker-root"
+  home="$TMP_ROOT/pi-child-marker-home"
+  mkdir -p "$repo/bin" "$home/state" "$home/config"
+  install_pi_watch_extension_fixture "$repo"
+  cp "$ROOT/.pi/extensions/fm-primary-turnend-guard.ts" "$repo/.pi/extensions/fm-primary-turnend-guard.ts"
+  out=$(FM_HOME="$home" FM_ROOT_OVERRIDE="$repo" node --input-type=module 2>&1 <<'EOF'
+import { writeFileSync, readFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
+import { spawnSync } from "node:child_process";
+
+const home = process.env.FM_HOME;
+const repo = process.env.FM_ROOT_OVERRIDE;
+const lockFile = `${home}/state/.lock`;
+const watchMarker = `${home}/state/.pi-watch-extension-loaded`;
+const turnendMarker = `${home}/state/.pi-turnend-extension-loaded`;
+
+// Simulate primary session holding the lock with parent PID
+const parentPid = process.pid;
+writeFileSync(lockFile, `${parentPid}\n`);
+
+// Load watch and turnend extensions in parent process
+const watchExt = await import(`${pathToFileURL(`${repo}/.pi/extensions/fm-primary-pi-watch.ts`).href}`);
+const turnendExt = await import(`${pathToFileURL(`${repo}/.pi/extensions/fm-primary-turnend-guard.ts`).href}`);
+
+const mockPi = {
+  events: { on() { return () => {}; }, emit() {} },
+  on() {},
+  registerTool() {},
+  registerCommand() {},
+  registerMessageRenderer() {},
+  sendMessage() {},
+  sendUserMessage() {},
+};
+
+watchExt.default(mockPi);
+turnendExt.default(mockPi);
+
+const watchMarkerParent = readFileSync(watchMarker, "utf8").trim().split("\n")[1];
+const turnendMarkerParent = readFileSync(turnendMarker, "utf8").trim().split("\n")[1];
+
+if (watchMarkerParent !== String(parentPid)) {
+  throw new Error(`watch marker has wrong parent pid: ${watchMarkerParent} vs ${parentPid}`);
+}
+if (turnendMarkerParent !== String(parentPid)) {
+  throw new Error(`turnend marker has wrong parent pid: ${turnendMarkerParent} vs ${parentPid}`);
+}
+
+// Now spawn a child node process (descendant of parentPid) that loads the extensions
+const childScript = `
+import { pathToFileURL } from "node:url";
+const watchExt = await import("${pathToFileURL(`${repo}/.pi/extensions/fm-primary-pi-watch.ts`).href}");
+const turnendExt = await import("${pathToFileURL(`${repo}/.pi/extensions/fm-primary-turnend-guard.ts`).href}");
+const mockPi = {
+  events: { on() { return () => {}; }, emit() {} },
+  on() {},
+  registerTool() {},
+  registerCommand() {},
+  registerMessageRenderer() {},
+  sendMessage() {},
+  sendUserMessage() {},
+};
+watchExt.default(mockPi);
+turnendExt.default(mockPi);
+`;
+
+const child = spawnSync("node", ["--input-type=module", "-e", childScript], {
+  env: { ...process.env, FM_HOME: home, FM_ROOT_OVERRIDE: repo },
+  encoding: "utf8",
+});
+
+if (child.status !== 0) {
+  throw new Error(`child process failed: ${child.stderr}`);
+}
+
+// Markers must STILL have parentPid, not the child PID!
+const watchMarkerAfter = readFileSync(watchMarker, "utf8").trim().split("\n")[1];
+const turnendMarkerAfter = readFileSync(turnendMarker, "utf8").trim().split("\n")[1];
+
+if (watchMarkerAfter !== String(parentPid)) {
+  throw new Error(`child process overwrote watch marker: ${watchMarkerAfter} vs expected ${parentPid}`);
+}
+if (turnendMarkerAfter !== String(parentPid)) {
+  throw new Error(`child process overwrote turnend marker: ${turnendMarkerAfter} vs expected ${parentPid}`);
+}
+process.exit(0);
+EOF
+)
+  status=$?
+  expect_code 0 "$status" "child process must not overwrite Pi extension markers: $out"
+  pass "child process does not overwrite Pi extension loaded markers with child PID"
+}
+
 test_opencode_plugin_package_boundary_is_explicit_esm() {
   local fixture plugin out status
   fixture="$TMP_ROOT/opencode-esm-boundary/.opencode"
@@ -4007,6 +4101,7 @@ test_pi_replacement_tokens_are_process_unique
 test_pi_replacement_persistence_failure_stops_arm_child
 test_pi_process_exit_cleanup_listener_lifecycle
 test_pi_process_exit_cleanup_stops_arm_child
+test_child_process_does_not_overwrite_pi_extension_markers
 test_opencode_plugin_package_boundary_is_explicit_esm
 test_opencode_primary_watch_plugin_uses_effective_state_home
 test_opencode_primary_watch_plugin_sources_effective_config
