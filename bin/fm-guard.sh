@@ -204,7 +204,9 @@ fi
 # calls in the same episode get a one-line reminder only. The supervision branch
 # cannot repair the watcher and lacks the fm_watch_arm_pi tool, so the alarm
 # stays silent for that actor to avoid false downtime summaries.
-if [ "$watcher_healthy" = false ] && [ "$GUARD_ACTOR" != branch ]; then
+if [ "$GUARD_ACTOR" = branch ]; then
+  :
+elif [ "$watcher_healthy" = false ]; then
   episode_key=$(fm_guard_stale_episode_key "$watcher_down_reason")
   episode_key=${episode_key%$'\n'}
   print_full_banner=0

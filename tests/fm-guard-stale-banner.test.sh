@@ -810,6 +810,9 @@ test_branch_actor_is_never_shown_watcher_down_banner() {
   pid=$!
   record_pi_extension_session "$dir" "$pid" watch || fail "could not record Pi extension session"
   touch "$home/state/.last-watcher-beat"
+  out=$(run_guard_case_extension "$dir")
+  assert_contains "$out" "WATCHER DOWN - SUPERVISION IS OFF" \
+    "main must be warned that the watcher is down"
   out=$(run_guard_case_extension_as_branch "$dir")
   assert_not_contains "$out" "WATCHER DOWN - SUPERVISION IS OFF" \
     "the branch actor must never be shown the watcher-down banner"
@@ -818,9 +821,11 @@ test_branch_actor_is_never_shown_watcher_down_banner() {
   out=$(run_guard_case_extension "$dir")
   kill "$pid" 2>/dev/null || true
   wait "$pid" 2>/dev/null || true
-  assert_contains "$out" "WATCHER DOWN - SUPERVISION IS OFF" \
-    "main must still be warned that the watcher is down"
-  pass "fm-guard: the branch actor is never shown watcher-down alarms while main still is"
+  assert_not_contains "$out" "WATCHER DOWN - SUPERVISION IS OFF" \
+    "branch handling must not clear main's stale-banner episode"
+  assert_contains "$out" "full banner already printed this episode" \
+    "main must retain its stale-banner episode after branch handling"
+  pass "fm-guard: branch watcher-down checks leave main's stale-banner episode intact"
 }
 
 test_persistent_model_ignores_pi_extension_evidence() {

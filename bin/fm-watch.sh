@@ -2224,26 +2224,32 @@ EOF
               rm -f "$ssf"
               clear_write_tracking "$key"
               triage_log "absorbed stale (open captain call already surfaced for this status): $w"
-            elif [ -z "$STALE_WAIT_DECLARATION" ] && { [ "$(status_line_verb "$last")" = 'done' ] || [ "$(status_line_verb "$last")" = 'failed' ]; } \
-              && ! status_span_first_actionable_record "$STATE/$(window_to_task "$w" "$STATE").status" "$(hb_surfaced_offset "$task")" >/dev/null 2>&1; then
-              printf '%s' "$h" > "$sf"
-              rm -f "$ssf"
-              clear_write_tracking "$key"
-              triage_log "absorbed stale (completed task already surfaced): $w"
             else
-              fm_wake_append stale "$w" "stale: $w" || exit 1
-              stale_wait_record "$key"
-              printf '%s' "$h" > "$sf"
-              rm -f "$ssf"
-              clear_write_tracking "$key"
-              stale_status="$STATE/$(window_to_task "$w" "$STATE").status"
-              stale_record=$(status_span_first_actionable_record "$stale_status" 0)
-              case $? in
-                0|1) stale_end=${stale_record%%$'\t'*}; stale_rest=${stale_record#*$'\t'}; stale_ident=${stale_rest%%$'\t'*} ;;
-                *) stale_end=''; stale_ident='' ;;
-              esac
-              mark_surfaced "$stale_status" "$stale_end" "$stale_ident"
-              wake "stale: $w"
+              completed_already_surfaced=false
+              if [ -z "$STALE_WAIT_DECLARATION" ] && { [ "$(status_line_verb "$last")" = 'done' ] || [ "$(status_line_verb "$last")" = 'failed' ]; }; then
+                status_span_first_actionable_record "$STATE/$(window_to_task "$w" "$STATE").status" "$(hb_surfaced_offset "$task")" >/dev/null 2>&1
+                [ "$?" -eq 1 ] && completed_already_surfaced=true
+              fi
+              if "$completed_already_surfaced"; then
+                printf '%s' "$h" > "$sf"
+                rm -f "$ssf"
+                clear_write_tracking "$key"
+                triage_log "absorbed stale (completed task already surfaced): $w"
+              else
+                fm_wake_append stale "$w" "stale: $w" || exit 1
+                stale_wait_record "$key"
+                printf '%s' "$h" > "$sf"
+                rm -f "$ssf"
+                clear_write_tracking "$key"
+                stale_status="$STATE/$(window_to_task "$w" "$STATE").status"
+                stale_record=$(status_span_first_actionable_record "$stale_status" 0)
+                case $? in
+                  0|1) stale_end=${stale_record%%$'\t'*}; stale_rest=${stale_record#*$'\t'}; stale_ident=${stale_rest%%$'\t'*} ;;
+                  *) stale_end=''; stale_ident='' ;;
+                esac
+                mark_surfaced "$stale_status" "$stale_end" "$stale_ident"
+                wake "stale: $w"
+              fi
             fi
           elif [ -e "$ssf" ]; then
             # This exact hash was already overridden as provably-working (a
