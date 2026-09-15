@@ -1,0 +1,12 @@
+LIVE SCENARIO: real Pi-owned extension state exercised through fm-guard as main and branch actors
+MAIN_UNHEALTHY_OUTPUT:
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 1s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/michael.bui/.no-mistakes/worktrees/4a24a4f26029/01M2HM0W4VE1MKK7GCCQ378QTD/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/michael.bui/.no-mistakes/worktrees/4a24a4f26029/01M2HM0W4VE1MKK7GCCQ378QTD/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BRANCH_UNHEALTHY_OUTPUT: <empty (branch did not receive watcher repair noise)>
+MAIN_AFTER_BRANCH_OUTPUT:
+WARNING: watcher still down (same stale episode; last beat: 1s ago, grace 30s) - full banner already printed this episode.

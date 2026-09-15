@@ -1,0 +1,52 @@
+LIVE SCENARIO: real tmux worker pane + real fm-watch watcher
+INITIAL_TERMINAL_STALE_DELIVERY:
+stale: fm-live-watch:fm-complete
+PANE_AFTER_TWO_STATUS_UNCHANGED_CHURNS:
+completed worker idle
+bash-5.3$ printf "pane churn one\\n"
+pane churn one
+bash-5.3$ printf "pane churn two\\n"
+pane churn two
+bash-5.3$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+SUCCESSOR_OUTPUT_AFTER_CHURN_AND_NEW_COMPLETION:
+signal: /Users/michael.bui/.no-mistakes/worktrees/4a24a4f26029/01M2HM0W4VE1MKK7GCCQ378QTD/.live-watch-validation/home/state/complete.status
+PERSISTED_WAKE_QUEUE:
+1789446005	1	stale	fm-live-watch:fm-complete	stale: fm-live-watch:fm-complete
+1789446021	2	signal	complete.status	signal: /Users/michael.bui/.no-mistakes/worktrees/4a24a4f26029/01M2HM0W4VE1MKK7GCCQ378QTD/.live-watch-validation/home/state/complete.status
+1789446022	3	signal	complete.status	signal: /Users/michael.bui/.no-mistakes/worktrees/4a24a4f26029/01M2HM0W4VE1MKK7GCCQ378QTD/.live-watch-validation/home/state/complete.status
+TRIAGE_LOG:
+[2026-09-14T21:20:15-0700] absorbed stale (completed task already surfaced): fm-live-watch:fm-complete

@@ -1,0 +1,56 @@
+LIVE SCENARIO: Pi TUI loaded both primary extensions in a 160x40 tmux pty
+PI_VERSION: 0.84.4
+PI_LOCK_PID: 21644 (alive during checks)
+PI_TUI_CAPTURE_AFTER_/new:
+
+
+ ✓ New session started
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+~/.no-mistakes/worktrees/4a24a4f26029/01M2HM0W4VE1MKK7GCCQ378QTD (detached)
+$0.000 (sub) 0.0%/272k (auto)                                                                                              (openai-codex) gpt-5.6-terra • medium
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+EXTENSION_MARKERS_WRITTEN_BY_LIVE_PI:
+.pi-turnend-extension-loaded: sha256:f827d1b6709692c3bbce6281f7837d931aaaffbfea7ca1970dbc6a7f1529ab55 21644 
+.pi-watch-extension-loaded: sha256:fe924fd2348126090b44ad2d14f9d464f95846ceb857773f727d92c6f452cf59 21644 
+FRESH_HANDOFF_GUARD_OUTPUT: <empty (no false watcher-down repair request)>
+STALE_BEACON_GUARD_OUTPUT:
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: 211580539s ago, grace 1s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/michael.bui/.no-mistakes/worktrees/4a24a4f26029/01M2HM0W4VE1MKK7GCCQ378QTD/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/michael.bui/.no-mistakes/worktrees/4a24a4f26029/01M2HM0W4VE1MKK7GCCQ378QTD/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
