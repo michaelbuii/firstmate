@@ -1,0 +1,3 @@
+relaunch_exit=1
+error: exit-delivered live-compiled interrupt=delivered verified=agent-alive cancel=unconfirmed exit-command=delivered agent-state=alive exit=unconfirmed; the agent did not stop within 12s
+error: relaunch of live-compiled failed while stopping the old agent, which is still running; its original instructions were restored

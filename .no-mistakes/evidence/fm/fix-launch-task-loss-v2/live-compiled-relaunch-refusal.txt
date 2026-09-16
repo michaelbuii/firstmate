@@ -1,0 +1,3 @@
+relaunch_exit=1
+error: task live-compiled's compiled Task or schema-v2 manifest changed after scaffolding; regenerate the brief from the compiler-returned header instead of launching altered instructions
+endpoint_after_refusal=0:claude:/Users/michael.bui/.no-mistakes/worktrees/4a24a4f26029/01M2MPMXE3S5685H27R80ERW6Q/.live-validation/home/.treehouse/project-c981c6/1/project

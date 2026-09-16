@@ -1,0 +1,52 @@
+treehouse get
+michael.bui@M-F6TFQ6K6MH:/Users/michael.bui/.no-mistakes/worktrees/4a24a4f26029/01M2MPMXE3S5685H27R80ERW6Q/.live-validat
+ion/project/ > treehouse get
+🌳 Setting up worktree...
+🌳 Entered worktree at ~/.treehouse/project-c981c6/1/project. Type 'exit' to return.
+michael.bui@M-F6TFQ6K6MH:~/.treehouse/project-c981c6/1/project/ > export GOTMPDIR=/tmp/fm-live-compiled/gotmp
+michael.bui@M-F6TFQ6K6MH:~/.treehouse/project-c981c6/1/project/ > export FM_TASK_ID=live-compiled
+michael.bui@M-F6TFQ6K6MH:~/.treehouse/project-c981c6/1/project/ > CLAUDE_CONFIG_DIR='/Users/michael.bui/.no-mistakes/wor
+ktrees/4a24a4f26029/01M2MPMXE3S5685H27R80ERW6Q/.live-validation/claude' env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMI
+NI_CLI CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude --dangerously-skip-permissions --se
+ttings '{"feedbackDrafts":"off","attribution":{"commit":"","pr":"","sessionUrl":false}}' "$('/Users/michael.bui/.no-mist
+akes/worktrees/4a24a4f26029/01M2MPMXE3S5685H27R80ERW6Q/bin/fm-operational-input.sh' encode launch-brief < '/Users/michae
+l.bui/.no-mistakes/worktrees/4a24a4f26029/01M2MPMXE3S5685H27R80ERW6Q/.live-validation/home/data/live-compiled/launch-bri
+ef.md')"
+Welcome to Claude Code v2.1.236
+..........................................................
+
+     *                                       █████▓▓░
+                                 *         ███▓░     ░░
+            ░░░░░░                        ███▓░
+    ░░░   ░░░░░░░░░░                      ███▓░
+   ░░░░░░░░░░░░░░░░░░░    *                ██▓░░      ▓
+                                             ░▓▓███▓▓░
+ *                                 ░░░░
+                                 ░░░░░░░░
+                               ░░░░░░░░░░░░░░░░
+       █████████                                        *
+      ██▄█████▄██                        *
+       █████████      *
+.......█ █   █ █..........................................
+
+ Claude Code can be used with your Claude subscription or billed based on API usage through your Console account.
+
+ Select login method:
+
+ ❯ 1. Claude account with subscription · Pro, Max, Team, or Enterprise
+   2. Anthropic Console account · API usage billing
+   3. 3rd-party platform · Amazon Bedrock, Microsoft Foundry, or Vertex AI
+
+
+
+
+
+
+
+
+
+
+
+
+
+
