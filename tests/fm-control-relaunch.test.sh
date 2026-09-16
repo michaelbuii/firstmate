@@ -557,6 +557,7 @@ EOF
     || fail "changed Task refusal stopped the existing agent"
 
   rm -f "$header"
+  perl -0pi -e 's/\n<!-- FIRSTMATE_COMPILED_HEADER v1 -->\n//' "$brief"
   before=$(LC_ALL=C wc -l < "$dir/fake/literal" | tr -d ' ')
   out=$(run_control "$dir" "$id" relaunch --note "missing header must refuse before stop"); rc=$?
   after=$(LC_ALL=C wc -l < "$dir/fake/literal" | tr -d ' ')

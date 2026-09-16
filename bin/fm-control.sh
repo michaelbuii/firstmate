@@ -789,7 +789,7 @@ record_note() {
 }
 
 do_relaunch() {
-  local exit_result state note_line relaunch_mode relaunch_yolo
+  local exit_result state note_line relaunch_mode relaunch_yolo relaunch_compiled_header
   local -a spawn_args
 
   require_state_verified_backend relaunch
@@ -804,7 +804,8 @@ do_relaunch() {
         || die "relaunch of a $KIND task requires --note (or --note-file): the replacement worker inherits the local copy but none of the conversation, so it must be told what happened"
       relaunch_mode=$(fm_meta_get "$META" mode)
       relaunch_yolo=$(fm_meta_get "$META" yolo)
-      fm_brief_compiled_task_preflight "$DATA" "$ID" "$RELAUNCH_BRIEF" "$KIND" "$relaunch_mode" "$relaunch_yolo" \
+      relaunch_compiled_header=$(fm_meta_get "$META" compiled_header)
+      fm_brief_compiled_task_preflight "$DATA" "$ID" "$RELAUNCH_BRIEF" "$KIND" "$relaunch_mode" "$relaunch_yolo" "$relaunch_compiled_header" \
         || die "$FM_BRIEF_PREFLIGHT_ERROR"
       ;;
     secondmate)

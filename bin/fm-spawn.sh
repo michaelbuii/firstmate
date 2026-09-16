@@ -466,6 +466,7 @@ MODE_SET=0
 YOLO_SET=0
 TRACEPARENT_SET=0
 RELAUNCH=0
+COMPILED_HEADER_PROVENANCE=
 POS=()
 want_value=
 for a in "$@"; do
@@ -1299,6 +1300,7 @@ if [ "$RELAUNCH" -eq 1 ]; then
   [ -n "$KIND" ] || KIND=ship
   MODE=$(fm_meta_get "$RELAUNCH_META" mode)
   YOLO=$(fm_meta_get "$RELAUNCH_META" yolo)
+  COMPILED_HEADER_PROVENANCE=$(fm_meta_get "$RELAUNCH_META" compiled_header)
   RELAUNCH_WT=$(fm_meta_get "$RELAUNCH_META" worktree)
   [ -n "$RELAUNCH_WT" ] && [ -d "$RELAUNCH_WT" ] || {
     echo "error: task $ID's recorded worktree '${RELAUNCH_WT:-none}' is missing; refusing to relaunch without the local copy its work lives in" >&2
@@ -2202,7 +2204,12 @@ fi
 [ -f "$BRIEF" ] || { echo "error: task $ID has no brief at inaccessible data path $BRIEF" >&2; exit 1; }
 if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
   COMPILED_HEADER="$DATA/$ID/compiled-task-header.md"
-  if ! fm_brief_compiled_task_preflight "$DATA" "$ID" "$BRIEF" "$KIND" "$MODE" "$YOLO"; then
+  if [ -z "$COMPILED_HEADER_PROVENANCE" ] \
+     && { [ -e "$COMPILED_HEADER" ] || [ -L "$COMPILED_HEADER" ] \
+          || fm_brief_compiled_handoff_version "$BRIEF" >/dev/null; }; then
+    COMPILED_HEADER_PROVENANCE=v1
+  fi
+  if ! fm_brief_compiled_task_preflight "$DATA" "$ID" "$BRIEF" "$KIND" "$MODE" "$YOLO" "$COMPILED_HEADER_PROVENANCE"; then
     echo "error: $FM_BRIEF_PREFLIGHT_ERROR" >&2
     exit 1
   fi
@@ -3640,7 +3647,7 @@ SPAWN_META_PATH=$SPAWN_META_TMP
 preserve_relaunch_meta() {
   awk -F= '
     BEGIN {
-      split("window endpoint_task_id worktree project harness kind mode yolo tasktmp model effort busy_gen spawn_gen traceparent backend herdr_session herdr_workspace_id herdr_tab_id herdr_pane_id zellij_session zellij_tab_id zellij_pane_id orca_worktree_id terminal cmux_workspace_id cmux_surface_id home projects control_relaunch_tx", keys, " ")
+      split("window endpoint_task_id worktree project harness kind mode yolo compiled_header tasktmp model effort busy_gen spawn_gen traceparent backend herdr_session herdr_workspace_id herdr_tab_id herdr_pane_id zellij_session zellij_tab_id zellij_pane_id orca_worktree_id terminal cmux_workspace_id cmux_surface_id home projects control_relaunch_tx", keys, " ")
       for (i in keys) owned[keys[i]] = 1
     }
     !($1 in owned)
@@ -3655,6 +3662,7 @@ preserve_relaunch_meta() {
   echo "kind=$KIND"
   [ -z "$MODE" ] || echo "mode=$MODE"
   [ -z "$YOLO" ] || echo "yolo=$YOLO"
+  [ -z "$COMPILED_HEADER_PROVENANCE" ] || echo "compiled_header=$COMPILED_HEADER_PROVENANCE"
   echo "tasktmp=$TASK_TMP"
   echo "model=${MODEL:-default}"
   echo "effort=${EFFORT:-default}"

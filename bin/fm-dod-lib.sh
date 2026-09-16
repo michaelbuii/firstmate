@@ -184,10 +184,14 @@ fm_brief_compiled_handoff_version() {  # <brief>
 
 # shellcheck disable=SC2034  # The sourcing launch/control scripts read this diagnostic after a refusal.
 FM_BRIEF_PREFLIGHT_ERROR=
-fm_brief_compiled_task_preflight() {  # <data-dir> <task-id> <brief> <kind> <mode> <yolo>
-  local data=$1 id=$2 brief=$3 kind=$4 mode=$5 yolo=$6 header handoff handoff_status manifest_region manifests count
+fm_brief_compiled_task_preflight() {  # <data-dir> <task-id> <brief> <kind> <mode> <yolo> <compiled-header>
+  local data=$1 id=$2 brief=$3 kind=$4 mode=$5 yolo=$6 compiled_header=${7:-} header handoff handoff_status manifest_region manifests count
   local manifest_kind manifest_mode manifest_yolo opening
   FM_BRIEF_PREFLIGHT_ERROR=
+  case "$compiled_header" in ''|v1) ;; *)
+    FM_BRIEF_PREFLIGHT_ERROR="task $id's compiled-header provenance in its task record is malformed"
+    return 1 ;;
+  esac
   header="$data/$id/compiled-task-header.md"
   if handoff=$(fm_brief_compiled_handoff_version "$brief"); then
     :
@@ -199,6 +203,7 @@ fm_brief_compiled_task_preflight() {  # <data-dir> <task-id> <brief> <kind> <mod
     fi
     handoff=
   fi
+  [ "$compiled_header" = v1 ] && handoff=v1
   if [ -n "$handoff" ] || [ -e "$header" ] || [ -L "$header" ]; then
     if [ ! -f "$header" ] || [ ! -r "$header" ] || [ -L "$header" ]; then
       if [ -n "$handoff" ]; then
