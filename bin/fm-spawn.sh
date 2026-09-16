@@ -2200,7 +2200,7 @@ fi
 [ -f "$BRIEF" ] || { echo "error: task $ID has no brief at inaccessible data path $BRIEF" >&2; exit 1; }
 if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
   COMPILED_HEADER="$DATA/$ID/compiled-task-header.md"
-  if ! fm_brief_compiled_task_preflight "$DATA" "$ID" "$BRIEF" "$KIND" "$MODE" "$YOLO"; then
+  if ! fm_brief_compiled_task_preflight "$DATA" "$STATE" "$ID" "$BRIEF" "$KIND" "$MODE" "$YOLO"; then
     echo "error: $FM_BRIEF_PREFLIGHT_ERROR" >&2
     exit 1
   fi

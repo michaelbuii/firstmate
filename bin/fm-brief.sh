@@ -198,7 +198,14 @@ fi
 
 BRIEF="$DATA/$ID/brief.md"
 COMPILED_HEADER_DEST="$DATA/$ID/compiled-task-header.md"
+COMPILED_HEADER_PROVENANCE="$STATE/$ID.compiler-header"
 [ -e "$BRIEF" ] && { echo "error: $BRIEF already exists" >&2; exit 1; }
+if [ "$COMPILED_HEADER_SET" -eq 1 ] \
+   && { [ -e "$COMPILED_HEADER_DEST" ] || [ -L "$COMPILED_HEADER_DEST" ] \
+        || [ -e "$COMPILED_HEADER_PROVENANCE" ] || [ -L "$COMPILED_HEADER_PROVENANCE" ]; }; then
+  echo "error: task $ID already has compiler-header provenance" >&2
+  exit 1
+fi
 
 validate_compiled_header() {  # <file> <mode>
   local file=$1 mode=$2 identity manifest task manifest_kind manifest_mode manifest_yolo
@@ -248,12 +255,21 @@ validate_compiled_header() {  # <file> <mode>
 }
 
 publish_compiled_header() {
-  local tmp
+  local header_tmp provenance_tmp
   [ "$COMPILED_HEADER_SET" -eq 1 ] || return 0
-  tmp="$COMPILED_HEADER_DEST.tmp.${BASHPID:-$$}"
-  if ! cat "$COMPILED_HEADER_FILE" > "$tmp" || ! mv "$tmp" "$COMPILED_HEADER_DEST"; then
-    rm -f "$tmp" "$BRIEF"
-    echo "error: could not store the compiled worker header at $COMPILED_HEADER_DEST" >&2
+  mkdir -p "$STATE" || {
+    rm -f "$BRIEF"
+    echo "error: could not create compiler-header provenance state at $STATE" >&2
+    return 1
+  }
+  header_tmp="$COMPILED_HEADER_DEST.tmp.${BASHPID:-$$}"
+  provenance_tmp="$COMPILED_HEADER_PROVENANCE.tmp.${BASHPID:-$$}"
+  if ! cat "$COMPILED_HEADER_FILE" > "$header_tmp" \
+     || ! printf 'v1\n' > "$provenance_tmp" \
+     || ! mv "$header_tmp" "$COMPILED_HEADER_DEST" \
+     || ! mv "$provenance_tmp" "$COMPILED_HEADER_PROVENANCE"; then
+    rm -f "$header_tmp" "$provenance_tmp" "$BRIEF" "$COMPILED_HEADER_DEST" "$COMPILED_HEADER_PROVENANCE"
+    echo "error: could not store compiler-header provenance for task $ID" >&2
     return 1
   fi
 }

@@ -168,14 +168,23 @@ fm_brief_compiled_header_matches() {  # <compiled-header> <brief>
 
 # shellcheck disable=SC2034  # The sourcing launch/control scripts read this diagnostic after a refusal.
 FM_BRIEF_PREFLIGHT_ERROR=
-fm_brief_compiled_task_preflight() {  # <data-dir> <task-id> <brief> <kind> <mode> <yolo>
-  local data=$1 id=$2 brief=$3 kind=$4 mode=$5 yolo=$6 header manifest_region manifests count
+fm_brief_compiled_task_preflight() {  # <data-dir> <state-dir> <task-id> <brief> <kind> <mode> <yolo>
+  local data=$1 state=$2 id=$3 brief=$4 kind=$5 mode=$6 yolo=$7 header provenance provenance_required=0 manifest_region manifests count
   local manifest_kind manifest_mode manifest_yolo
   FM_BRIEF_PREFLIGHT_ERROR=
   header="$data/$id/compiled-task-header.md"
-  if [ -e "$header" ] || [ -L "$header" ]; then
+  provenance="$state/$id.compiler-header"
+  if [ -e "$provenance" ] || [ -L "$provenance" ]; then
+    if [ ! -f "$provenance" ] || [ ! -r "$provenance" ] || [ -L "$provenance" ] \
+       || ! cmp -s <(printf 'v1\n') "$provenance"; then
+      FM_BRIEF_PREFLIGHT_ERROR="task $id's compiler-header provenance is invalid: $provenance"
+      return 1
+    fi
+    provenance_required=1
+  fi
+  if [ "$provenance_required" -eq 1 ] || [ -e "$header" ] || [ -L "$header" ]; then
     if [ ! -f "$header" ] || [ ! -r "$header" ] || [ -L "$header" ]; then
-      FM_BRIEF_PREFLIGHT_ERROR="task $id's compiled header is not a readable regular file: $header"
+      FM_BRIEF_PREFLIGHT_ERROR="task $id's compiler-header provenance requires its stored header: $header"
       return 1
     fi
     if ! fm_brief_compiled_header_matches "$header" "$brief"; then

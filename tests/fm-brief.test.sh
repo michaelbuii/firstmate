@@ -232,7 +232,7 @@ test_compiled_header_scaffold_preserves_task_bytes() {
 You are a crewmate: an autonomous worker agent managed by firstmate. Work on your own; do not wait for a human.
 <!-- FIRSTMATE_WORKFLOW v2 registry=sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa kind=ship mode=no-mistakes yolo=off playbook=feature overlays=impeccable,vercel-react-best-practices ui=clarify -->
 # Task
-Pstack mode task:
+Poteto mode task:
 
 Build the React risk dashboard from the settled assessment plan.
 Preserve this multiline Task exactly before Captain intent serialization.
@@ -263,7 +263,7 @@ EOF
     "refused compiled header still produced a brief"
 
   reserved_header="$TMP_ROOT/compiled-header-reserved-subsection.md"
-  awk '{ print; if ($0 == "Pstack mode task:") print "## Captain'\''s intent" }' "$header" > "$reserved_header"
+  awk '{ print; if ($0 == "Poteto mode task:") print "## Captain'\''s intent" }' "$header" > "$reserved_header"
   out=$(FM_HOME="$home" "$ROOT/bin/fm-brief.sh" compiled-task-a3 Jira-Risk-Register \
     --mode no-mistakes --compiled-header-file "$reserved_header" 2>&1)
   status=$?

@@ -496,36 +496,27 @@ test_relaunch_appends_the_progress_note_to_the_instructions() {
 }
 
 test_relaunch_preserves_compiled_task_and_refuses_changed_task_before_stop() {
-  local dir id header brief launch bytes source_task launch_task out rc before after
+  local dir id header_source header brief launch bytes source_task launch_task out rc before after
   id=rl-compiled
   dir=$(new_case compiled-task "$id")
   add_ship_task "$dir" "$id" claude
-  header="$dir/home/data/$id/compiled-task-header.md"
-  cat > "$header" <<'EOF'
+  header_source="$dir/compiled-header.md"
+  cat > "$header_source" <<'EOF'
 You are a crewmate: an autonomous worker agent managed by firstmate. Work on your own; do not wait for a human.
 <!-- FIRSTMATE_WORKFLOW v2 registry=sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc kind=ship mode=no-mistakes yolo=off playbook=feature overlays=impeccable,vercel-react-best-practices ui=clarify -->
 # Task
-Pstack mode task:
+Poteto mode task:
 
 Continue the multiline React dashboard implementation.
 Preserve this exact Task through every relaunch.
 EOF
   brief="$dir/home/data/$id/brief.md"
-  {
-    cat "$header"
-    cat <<'EOF'
-
-
-## Captain's intent
-Implement the settled dashboard behavior.
-
-## Firstmate spec
-Keep the exact compiled Task while continuing the implementation.
-
-# Definition of done
-Delivery contract: mode=no-mistakes
-EOF
-  } > "$brief"
+  rm -f "$brief"
+  FM_HOME="$dir/home" "$ROOT/bin/fm-brief.sh" "$id" fixture-project --mode no-mistakes \
+    --compiled-header-file "$header_source" >/dev/null 2>&1 \
+    || fail "compiler-backed relaunch brief should scaffold"
+  perl -0pi -e 's/\{TASK\}/Implement the settled dashboard behavior./; s/\{FIRSTMATE_SPEC\}/Keep the exact compiled Task while continuing the implementation./' "$brief"
+  header="$dir/home/data/$id/compiled-task-header.md"
 
   out=$(run_control "$dir" "$id" relaunch --note "continue after the compiler-backed launch"); rc=$?
   expect_code 0 "$rc" "compiler-backed relaunch should succeed"$'\n'"$out"
@@ -555,12 +546,13 @@ EOF
     || fail "changed Task refusal stopped the existing agent"
 
   rm -f "$header"
+  perl -0pi -e 's{^<!-- FIRSTMATE_WORKFLOW v2 [^\n]* -->\n}{}m' "$brief"
   before=$(LC_ALL=C wc -l < "$dir/fake/literal" | tr -d ' ')
   out=$(run_control "$dir" "$id" relaunch --note "missing header must refuse before stop"); rc=$?
   after=$(LC_ALL=C wc -l < "$dir/fake/literal" | tr -d ' ')
   expect_code 1 "$rc" "missing compiled header must refuse a relaunch"
-  assert_contains "$out" "schema-v2 brief requires its stored compiler header" \
-    "missing compiled header did not identify the stored-header refusal"
+  assert_contains "$out" "compiler-header provenance requires its stored header" \
+    "missing compiled header did not identify the durable stored-header refusal"
   [ "$before" = "$after" ] || fail "missing-header refusal delivered lifecycle input before stopping"
   [ "$(cat "$dir/fake/command")" = claude ] \
     || fail "missing-header refusal stopped the existing agent"
