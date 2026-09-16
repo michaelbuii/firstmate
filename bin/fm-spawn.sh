@@ -19,9 +19,9 @@
 #   intent. A scaffold created from a compiler-returned typed header stores that
 #   header at data/<id>/compiled-task-header.md. Fresh launches and relaunches
 #   require those exact manifest and opening-Task bytes at the start of both the
-#   source brief and rendered launch instructions. A schema-v2 brief without the
-#   sidecar remains rollout-compatible only when it has a nonempty opening Task
-#   before `## Captain's intent`; this catches the historical transformation that
+#   source brief and rendered launch instructions. An unmarked schema-v2 brief
+#   without the sidecar remains rollout-compatible only when it has a nonempty
+#   opening Task before `## Captain's intent`; this catches the historical transformation that
 #   kept the manifest and provenance subsections but dropped the compiled Task.
 #   A legacy mixed Task is accepted there only under bin/fm-dod-lib.sh's
 #   provenance-marking rules; unmarked legacy Tasks stop for migration rather

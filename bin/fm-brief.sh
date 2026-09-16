@@ -229,6 +229,15 @@ validate_compiled_header() {  # <file> <ship|scout> <mode-or-empty>
     echo "error: compiled header Task contains a level-one heading" >&2
     return 1
   fi
+  if fm_brief_heading_present "$file" "## Captain's intent" \
+     || fm_brief_heading_present "$file" "## Firstmate spec"; then
+    echo "error: compiled header Task contains a reserved provenance subsection heading" >&2
+    return 1
+  fi
+  if grep -q '^<!-- FIRSTMATE_COMPILED_HEADER' "$file"; then
+    echo "error: compiled header Task contains a reserved compiler-header handoff marker" >&2
+    return 1
+  fi
   manifest_kind=$(printf '%s\n' "$manifest" | sed -n 's/.* kind=\([^ ]*\) .*/\1/p')
   manifest_mode=$(printf '%s\n' "$manifest" | sed -n 's/.* mode=\([^ ]*\) .*/\1/p')
   manifest_yolo=$(printf '%s\n' "$manifest" | sed -n 's/.* yolo=\([^ ]*\) .*/\1/p')
@@ -442,6 +451,11 @@ EOF
   fi
 }
 
+emit_compiled_header_handoff() {
+  [ "$COMPILED_HEADER_SET" -eq 1 ] || return 0
+  printf '\n<!-- FIRSTMATE_COMPILED_HEADER v1 -->\n'
+}
+
 if [ "$KIND" = scout ]; then
 {
 emit_worker_task_section
@@ -502,6 +516,7 @@ Before reporting done, read and follow \`$FM_ROOT/.agents/skills/captain-hold-li
 When the report is complete, append \`done: {one-line conclusion}\` to the status file and stop.
 If your findings reveal work that should ship (e.g. you reproduced a bug and the fix is clear), say so in the report; firstmate may promote this task in place, and you would then receive mode-specific ship instructions as a follow-up message.
 EOF
+emit_compiled_header_handoff
 } > "$BRIEF"
 publish_compiled_header || exit 1
 echo "scaffolded: $BRIEF (scout; replace {TASK} and {FIRSTMATE_SPEC})"
@@ -595,6 +610,7 @@ Keep it proportionate: skip \`AGENTS.md\` edits for trivial tasks that produced 
 
 $DOD
 EOF
+emit_compiled_header_handoff
 } > "$BRIEF"
 publish_compiled_header || exit 1
 echo "scaffolded: $BRIEF (ship, mode=$MODE; replace {TASK} and {FIRSTMATE_SPEC})"

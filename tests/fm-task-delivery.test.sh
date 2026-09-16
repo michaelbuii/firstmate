@@ -749,7 +749,7 @@ EOF
 }
 
 test_compiled_task_survives_launch_and_changed_task_refuses() {
-  local rec home proj fakebin header id source launch source_task launch_task bytes out status lost_id
+  local rec home proj fakebin header id source launch source_task launch_task bytes out status lost_id missing_id
   rec=$(make_home compiled-task-launch)
   IFS='|' read -r home proj fakebin <<EOF
 $rec
@@ -797,8 +797,25 @@ EOF
     "changed compiled Task did not identify its canonical header mismatch"
 
   lost_id=compiled-task-lost-a2
-  mkdir -p "$home/data/$lost_id"
-  cat > "$home/data/$lost_id/brief.md" <<'EOF'
+  FM_HOME="$home" "$BRIEF" "$lost_id" proj --mode no-mistakes \
+    --compiled-header-file "$header" >/dev/null 2>&1 \
+    || fail "compiler-backed brief for lost-header refusal should scaffold"
+  fill_brief_subsections "$home/data/$lost_id/brief.md" \
+    "Implement the settled Jira risk-view behavior." \
+    "Keep manifest validation strict and test the UI route."
+  rm -f "$home/data/$lost_id/compiled-task-header.md"
+  perl -0pi -e 's/playbook=feature/playbook=feature-two/' "$home/data/$lost_id/brief.md"
+  out=$(run_spawn "$home" "$fakebin" "$lost_id" "$proj" claude --mode no-mistakes --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "compiled brief with a deleted stored header should refuse"
+  assert_contains "$out" "compiler-header handoff requires its stored header" \
+    "deleted compiler header did not refuse before validating altered manifest bytes"
+  assert_absent "$home/data/$lost_id/launch-brief.md" \
+    "deleted-header refusal still published launch instructions"
+
+  missing_id=compiled-task-missing-a3
+  mkdir -p "$home/data/$missing_id"
+  cat > "$home/data/$missing_id/brief.md" <<'EOF'
 You are a crewmate: an autonomous worker agent managed by firstmate. Work on your own; do not wait for a human.
 <!-- FIRSTMATE_WORKFLOW v2 registry=sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb kind=ship mode=no-mistakes yolo=off playbook=feature overlays=impeccable,vercel-react-best-practices ui=clarify -->
 # Task
@@ -811,12 +828,12 @@ Keep manifest validation strict and test the UI route.
 # Definition of done
 Delivery contract: mode=no-mistakes
 EOF
-  out=$(run_spawn "$home" "$fakebin" "$lost_id" "$proj" claude --mode no-mistakes --yolo off)
+  out=$(run_spawn "$home" "$fakebin" "$missing_id" "$proj" claude --mode no-mistakes --yolo off)
   status=$?
   [ "$status" -ne 0 ] || fail "schema-v2 brief missing its opening compiled Task should refuse"
   assert_contains "$out" "missing the compiler-returned opening Task before ## Captain's intent" \
     "Jira Risk Views task-loss shape did not receive the focused refusal"
-  assert_absent "$home/data/$lost_id/launch-brief.md" \
+  assert_absent "$home/data/$missing_id/launch-brief.md" \
     "task-loss refusal still published launch instructions"
   pass "fm-spawn: compiled multiline Task survives launch and genuine Task changes refuse"
 }

@@ -524,6 +524,8 @@ Keep the exact compiled Task while continuing the implementation.
 
 # Definition of done
 Delivery contract: mode=no-mistakes
+
+<!-- FIRSTMATE_COMPILED_HEADER v1 -->
 EOF
   } > "$brief"
 
@@ -553,6 +555,17 @@ EOF
   [ "$before" = "$after" ] || fail "changed Task refusal delivered lifecycle input before stopping"
   [ "$(cat "$dir/fake/command")" = claude ] \
     || fail "changed Task refusal stopped the existing agent"
+
+  rm -f "$header"
+  before=$(LC_ALL=C wc -l < "$dir/fake/literal" | tr -d ' ')
+  out=$(run_control "$dir" "$id" relaunch --note "missing header must refuse before stop"); rc=$?
+  after=$(LC_ALL=C wc -l < "$dir/fake/literal" | tr -d ' ')
+  expect_code 1 "$rc" "missing compiled header must refuse a relaunch"
+  assert_contains "$out" "compiler-header handoff requires its stored header" \
+    "missing compiled header did not identify the durable handoff refusal"
+  [ "$before" = "$after" ] || fail "missing-header refusal delivered lifecycle input before stopping"
+  [ "$(cat "$dir/fake/command")" = claude ] \
+    || fail "missing-header refusal stopped the existing agent"
   pass "fm-control relaunch: compiled Task bytes survive and changed Tasks refuse before stop"
 }
 

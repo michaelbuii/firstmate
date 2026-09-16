@@ -172,16 +172,40 @@ fm_brief_compiled_header_matches() {  # <compiled-header> <brief>
     <(LC_ALL=C dd if="$brief" bs=1 count="$expected_bytes" 2>/dev/null)
 }
 
+fm_brief_compiled_handoff_version() {  # <brief>
+  local brief=$1 markers count
+  [ -f "$brief" ] && [ -r "$brief" ] || return 2
+  markers=$(grep '^<!-- FIRSTMATE_COMPILED_HEADER' "$brief" || true)
+  count=$(printf '%s\n' "$markers" | awk 'NF { count++ } END { print count + 0 }')
+  [ "$count" -eq 0 ] && return 1
+  [ "$count" -eq 1 ] && [ "$markers" = '<!-- FIRSTMATE_COMPILED_HEADER v1 -->' ] || return 2
+  printf 'v1\n'
+}
+
 # shellcheck disable=SC2034  # The sourcing launch/control scripts read this diagnostic after a refusal.
 FM_BRIEF_PREFLIGHT_ERROR=
 fm_brief_compiled_task_preflight() {  # <data-dir> <task-id> <brief> <kind> <mode> <yolo>
-  local data=$1 id=$2 brief=$3 kind=$4 mode=$5 yolo=$6 header manifest_region manifests count
+  local data=$1 id=$2 brief=$3 kind=$4 mode=$5 yolo=$6 header handoff handoff_status manifest_region manifests count
   local manifest_kind manifest_mode manifest_yolo opening
   FM_BRIEF_PREFLIGHT_ERROR=
   header="$data/$id/compiled-task-header.md"
-  if [ -e "$header" ] || [ -L "$header" ]; then
+  if handoff=$(fm_brief_compiled_handoff_version "$brief"); then
+    :
+  else
+    handoff_status=$?
+    if [ "$handoff_status" -ne 1 ]; then
+      FM_BRIEF_PREFLIGHT_ERROR="task $id's compiler-header handoff marker is malformed"
+      return 1
+    fi
+    handoff=
+  fi
+  if [ -n "$handoff" ] || [ -e "$header" ] || [ -L "$header" ]; then
     if [ ! -f "$header" ] || [ ! -r "$header" ] || [ -L "$header" ]; then
-      FM_BRIEF_PREFLIGHT_ERROR="task $id's compiled header is not a readable regular file: $header"
+      if [ -n "$handoff" ]; then
+        FM_BRIEF_PREFLIGHT_ERROR="task $id's compiler-header handoff requires its stored header, but it is unavailable: $header"
+      else
+        FM_BRIEF_PREFLIGHT_ERROR="task $id's compiled header is not a readable regular file: $header"
+      fi
       return 1
     fi
     if ! fm_brief_compiled_header_matches "$header" "$brief"; then

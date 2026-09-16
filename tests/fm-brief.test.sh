@@ -225,7 +225,7 @@ test_ship_modes_generate_clean_briefs() {
 # reconstruct its Task from Captain intent or Firstmate spec. The Jira Risk Views
 # failure dropped this opening Task paragraph while retaining both subsections.
 test_compiled_header_scaffold_preserves_task_bytes() {
-  local home header brief stored bytes out status bad_header
+  local home header brief stored bytes out status bad_header reserved_header
   home="$TMP_ROOT/compiled-header-home"
   header="$TMP_ROOT/compiled-header.md"
   cat > "$header" <<'EOF'
@@ -261,6 +261,17 @@ EOF
     "compiled header mismatch did not identify the task contract"
   assert_absent "$home/data/compiled-task-a2/brief.md" \
     "refused compiled header still produced a brief"
+
+  reserved_header="$TMP_ROOT/compiled-header-reserved-subsection.md"
+  awk '{ print; if ($0 == "Pstack mode task:") print "## Captain'\''s intent" }' "$header" > "$reserved_header"
+  out=$(FM_HOME="$home" "$ROOT/bin/fm-brief.sh" compiled-task-a3 Jira-Risk-Register \
+    --mode no-mistakes --compiled-header-file "$reserved_header" 2>&1)
+  status=$?
+  [ "$status" -ne 0 ] || fail "compiled header with a Captain intent subsection should refuse"
+  assert_contains "$out" "reserved provenance subsection heading" \
+    "compiled header subsection collision did not explain the refusal"
+  assert_absent "$home/data/compiled-task-a3/brief.md" \
+    "reserved compiled header subsection still produced a brief"
   pass "fm-brief.sh: compiler-returned Task and manifest bytes survive scaffolding"
 }
 
