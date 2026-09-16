@@ -272,6 +272,14 @@ INVALID_URLS=(
   'https://github.com/-owner/r/pull/1'
   'https://github.com/owner-/r/pull/1'
   'https://github.com/owner--name/r/pull/1'
+  'https://github.com/_owner/r/pull/1'
+  'https://github.com/owner_/r/pull/1'
+  'https://github.com/owner__emu/r/pull/1'
+  'https://github.com/owner_e/r/pull/1'
+  'https://github.com/owner_enterprise/r/pull/1'
+  'https://github.com/owner-_emu/r/pull/1'
+  'https://github.com/owner_-emu/r/pull/1'
+  'https://github.com/owner_emu_more/r/pull/1'
   'https://github.com/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/r/pull/1'
   'https://github.com/o/./pull/1'
   'https://github.com/o/../pull/1'
@@ -358,6 +366,7 @@ test_parser_matrix() {
   done <<'EOF'
 https://github.com/a/b/pull/1|a|b|1
 https://github.com/my-org/repo/pull/42|my-org|repo|42
+https://github.com/michael-bui_o2e/Jira-Risk-Register/pull/2|michael-bui_o2e|Jira-Risk-Register|2
 https://github.com/Owner/repo-name_with.parts/pull/123456|Owner|repo-name_with.parts|123456
 EOF
   while IFS='|' read -r url host path number; do
@@ -392,6 +401,50 @@ EOF
   fm_pr_task_id_valid "$id" || fail "operational validator rejected a path-safe legacy task ID"
   ! fm_task_id_creation_valid "$id" || fail "creation validator accepted an overlong task ID"
   pass "raw-byte parser accepts canonical URLs and rejects the complete adversarial matrix"
+}
+
+test_enterprise_managed_owner_entrypoints() {
+  local dir url value before after rc
+  dir=$(make_case enterprise-managed-owner)
+  url=https://github.com/michael-bui_o2e/Jira-Risk-Register/pull/2
+  write_task_meta "$dir"
+
+  run_check_entry "$dir" task-a "$url" > "$dir/check.out" 2> "$dir/check.err" \
+    || fail "PR check rejected an Enterprise Managed User repository owner"
+  grep -qxF "pr=$url" "$dir/home/state/task-a.meta" \
+    || fail "PR check did not record the Enterprise Managed User repository URL"
+
+  : > "$dir/gh-axi.log"
+  run_merge_entry "$dir" task-a "$url" > "$dir/merge.out" 2> "$dir/merge.err" \
+    || fail "PR merge rejected an Enterprise Managed User repository owner"
+  grep -qxF 'pr merge 2 --repo michael-bui_o2e/Jira-Risk-Register --squash' "$dir/gh-axi.log" \
+    || fail "PR merge did not derive the exact Enterprise Managed User repository owner"
+
+  for value in \
+    'https://github.com.evil/michael-bui_o2e/Jira-Risk-Register/pull/2' \
+    'https://github.com/michael-bui_/Jira-Risk-Register/pull/2' \
+    'https://user@github.com/michael-bui_o2e/Jira-Risk-Register/pull/2' \
+    'https://github.com/michael-bui_o2e/Jira-Risk-Register/pull/2?q=x' \
+    'https://github.com/michael-bui_o2e/Jira-Risk-Register/pull/2#files' \
+    'https://github.com/michael-bui_o2e/Jira-Risk-Register/pull/2/files'; do
+    before=$(state_snapshot "$dir/home/state")
+    set +e
+    run_check_entry "$dir" task-a "$value" > "$dir/invalid-check.out" 2> "$dir/invalid-check.err"
+    rc=$?
+    set -e
+    [ "$rc" -ne 0 ] || fail "PR check accepted a malformed Enterprise Managed User repository URL"
+    after=$(state_snapshot "$dir/home/state")
+    [ "$after" = "$before" ] || fail "rejected PR check changed state"
+
+    set +e
+    run_merge_entry "$dir" task-a "$value" > "$dir/invalid-merge.out" 2> "$dir/invalid-merge.err"
+    rc=$?
+    set -e
+    [ "$rc" -ne 0 ] || fail "PR merge accepted a malformed Enterprise Managed User repository URL"
+    after=$(state_snapshot "$dir/home/state")
+    [ "$after" = "$before" ] || fail "rejected PR merge changed state"
+  done
+  pass "PR check and merge accept Enterprise Managed User owners and reject malformed variants"
 }
 
 test_invalid_entrypoints_have_zero_side_effects() {
@@ -2128,6 +2181,7 @@ test_gitlab_merged_poll_retires() {
 }
 
 test_parser_matrix
+test_enterprise_managed_owner_entrypoints
 test_gitlab_merge_watch
 test_merged_poll_retires_once
 test_merged_poll_reregistration_after_notification_is_absorbed

@@ -156,9 +156,32 @@ fm_pr_gitlab_path_valid() {
   done
 }
 
+# GitHub repository owners normally use the same 1-39 character account-name
+# rules as personal accounts and organizations. GitHub.com Enterprise Managed
+# Users add one underscore plus a 3-8 character alphanumeric enterprise
+# shortcode. The normalized account-name part keeps the ordinary hyphen rules,
+# and the full name, including the managed suffix, keeps the 39-character cap.
+fm_pr_github_owner_valid() {
+  local owner=${1-} account suffix
+  local LC_ALL=C
+  [ "${#owner}" -ge 1 ] && [ "${#owner}" -le 39 ] || return 1
+  case "$owner" in
+    *[!A-Za-z0-9_-]*|_*|*_|-*|*-|*--*|*__*) return 1 ;;
+  esac
+  case "$owner" in
+    *_*)
+      account=${owner%%_*}
+      suffix=${owner#*_}
+      [ "${#suffix}" -ge 3 ] && [ "${#suffix}" -le 8 ] || return 1
+      case "$account" in ''|-*|*-|*--*|*[!A-Za-z0-9-]*) return 1 ;; esac
+      case "$suffix" in *[!A-Za-z0-9]*) return 1 ;; esac
+      ;;
+  esac
+}
+
 # Parse a canonical PR or MR URL into the provider-tagged identity. Validation
-# is strict and per provider: the GitHub username and repository rules are
-# unchanged, and GitLab gets its own host and namespace rules rather than a
+# is strict and per provider: GitHub applies its account-owner and repository
+# rules, while GitLab gets its own host and namespace rules rather than a
 # loosened GitHub rule.
 #
 # FM_PR_OWNER and FM_PR_REPO are additionally set for github because
@@ -175,9 +198,9 @@ fm_pr_url_parse() {
   FM_PR_OWNER=
   FM_PR_REPO=
   FM_PR_NUMBER=
-  pattern='^https://github\.com/([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9-]{0,37}[A-Za-z0-9])/([A-Za-z0-9._-]{1,100})/pull/([1-9][0-9]*)$'
+  pattern='^https://github\.com/([A-Za-z0-9_-]{1,39})/([A-Za-z0-9._-]{1,100})/pull/([1-9][0-9]*)$'
   if [[ "$raw" =~ $pattern ]]; then
-    [[ "${BASH_REMATCH[1]}" != *--* ]] || return 1
+    fm_pr_github_owner_valid "${BASH_REMATCH[1]}" || return 1
     [ "${BASH_REMATCH[2]}" != . ] && [ "${BASH_REMATCH[2]}" != .. ] || return 1
     FM_PR_PROVIDER=github
     FM_PR_URL=$raw
