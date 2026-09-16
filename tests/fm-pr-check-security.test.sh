@@ -41,7 +41,7 @@ ack_watcher_cycle() {  # <state>
 
 file_mode() {
   if [ "$(uname)" = Darwin ]; then
-    stat -f %Lp "$1"
+    /usr/bin/stat -f %Lp "$1"
   else
     stat -c %a "$1"
   fi
@@ -134,7 +134,7 @@ SH
   chmod +x "$fake_root/bin/fm-guard.sh"
   cat > "$fakebin/gh" <<'SH'
 #!/usr/bin/env bash
-printf '%s\n' "$*" >> "$FM_TEST_GH_LOG"
+printf '%s\n' "$*" >> "${FM_TEST_GH_LOG:-/dev/null}"
 case "${1:-} ${2:-}" in
   "api graphql")
     printf '%s\n' \
