@@ -414,6 +414,16 @@ test_enterprise_managed_owner_entrypoints() {
   grep -qxF "pr=$url" "$dir/home/state/task-a.meta" \
     || fail "PR check did not record the Enterprise Managed User repository URL"
 
+  set +e
+  FM_TEST_GH_STATE=MERGED run_watcher_bounded "$dir/home" "$dir/fakebin" > "$dir/watch.out" 2> "$dir/watch.err"
+  rc=$?
+  set -e
+  [ "$rc" -eq 0 ] || fail "Enterprise Managed User merged watcher failed: $(cat "$dir/watch.err")"
+  case "$(cat "$dir/watch.out")" in
+    check:*task-a.check.sh:*merged) ;;
+    *) fail "Enterprise Managed User merged watcher did not emit a merge wake" ;;
+  esac
+
   : > "$dir/gh-axi.log"
   run_merge_entry "$dir" task-a "$url" > "$dir/merge.out" 2> "$dir/merge.err" \
     || fail "PR merge rejected an Enterprise Managed User repository owner"

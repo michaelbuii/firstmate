@@ -55,7 +55,16 @@ case "$provider" in
     repo=${path#*/}
     [ "${#owner}" -ge 1 ] && [ "${#owner}" -le 39 ] || exit 0
     case "$owner" in
-      *[!A-Za-z0-9-]*|-*|*-|*--*) exit 0 ;;
+      *[!A-Za-z0-9_-]*|_*|*_|-*|*-|*--*|*__*) exit 0 ;;
+    esac
+    case "$owner" in
+      *_*)
+        account=${owner%%_*}
+        suffix=${owner#*_}
+        [ "${#suffix}" -ge 3 ] && [ "${#suffix}" -le 8 ] || exit 0
+        case "$account" in ''|-*|*-|*--*|*[!A-Za-z0-9-]*) exit 0 ;; esac
+        case "$suffix" in *[!A-Za-z0-9]*) exit 0 ;; esac
+        ;;
     esac
     [ "${#repo}" -ge 1 ] && [ "${#repo}" -le 100 ] || exit 0
     case "$repo" in
