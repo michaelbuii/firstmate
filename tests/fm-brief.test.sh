@@ -272,6 +272,15 @@ EOF
     "compiled header subsection collision did not explain the refusal"
   assert_absent "$home/data/compiled-task-a3/brief.md" \
     "reserved compiled header subsection still produced a brief"
+
+  out=$(FM_HOME="$home" "$ROOT/bin/fm-brief.sh" compiled-task-a4 Jira-Risk-Register \
+    --scout --compiled-header-file "$header" 2>&1)
+  status=$?
+  [ "$status" -ne 0 ] || fail "compiler-backed scout brief should refuse"
+  assert_contains "$out" "--compiled-header-file applies only to ship briefs" \
+    "compiler-backed scout refusal did not explain the supported lifecycle"
+  assert_absent "$home/data/compiled-task-a4/brief.md" \
+    "refused compiler-backed scout still produced a brief"
   pass "fm-brief.sh: compiler-returned Task and manifest bytes survive scaffolding"
 }
 

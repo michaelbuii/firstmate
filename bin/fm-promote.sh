@@ -134,6 +134,12 @@ fi
 grep -qx 'kind=scout' "$META" || { echo "error: task $ID is not a scout task (kind=scout not in meta)" >&2; exit 1; }
 
 SCOUT_BRIEF="$DATA/$ID/brief.md"
+if [ -e "$DATA/$ID/compiled-task-header.md" ] || [ -L "$DATA/$ID/compiled-task-header.md" ] \
+   || grep -q '^<!-- FIRSTMATE_WORKFLOW v2 ' "$SCOUT_BRIEF" \
+   || grep -qx 'compiled_header=v1' "$META"; then
+  echo "error: compiler-backed scouts cannot be promoted in place; scaffold a ship brief from a ship compiler header" >&2
+  exit 1
+fi
 if fm_brief_task_placeholders_present "$SCOUT_BRIEF"; then
   echo "error: $SCOUT_BRIEF still contains {TASK} or {FIRSTMATE_SPEC}; preserve the original ask in ## Captain's intent and fill the scout-time ## Firstmate spec; promotion generates a separate ship-time spec" >&2
   exit 1
@@ -194,7 +200,7 @@ TMP=
 [ -f "$INSTRUCTIONS" ] && [ -r "$INSTRUCTIONS" ] || { echo "error: ship instructions were not published as a readable file: $INSTRUCTIONS" >&2; exit 1; }
 
 TMP="$STATE/.$ID.meta.promote.${BASHPID:-$$}"
-grep -v -e '^kind=' -e '^mode=' -e '^yolo=' "$META" > "$TMP"
+grep -v -e '^kind=' -e '^mode=' -e '^yolo=' -e '^compiled_header=' "$META" > "$TMP"
 {
   echo "kind=ship"
   echo "mode=$MODE"

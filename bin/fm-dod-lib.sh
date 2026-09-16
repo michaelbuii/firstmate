@@ -148,12 +148,6 @@ fm_brief_task_heading_present() {  # <file> <heading>
   printf '%s\n' "$task" | fm_brief_heading_parse - "$2" present >/dev/null
 }
 
-fm_brief_task_opening_body() {  # <file>
-  local task
-  task=$(fm_brief_heading_body "$1" "# Task")
-  printf '%s\n' "$task" | fm_brief_heading_parse - "## Captain's intent" before
-}
-
 # A compiler-backed brief stores the compiler's complete typed header separately.
 # The source brief and every launch overlay must begin with those bytes followed
 # immediately by the Captain's intent subsection marker. This binds the exact
@@ -172,45 +166,16 @@ fm_brief_compiled_header_matches() {  # <compiled-header> <brief>
     <(LC_ALL=C dd if="$brief" bs=1 count="$expected_bytes" 2>/dev/null)
 }
 
-fm_brief_compiled_handoff_version() {  # <brief>
-  local brief=$1 markers count
-  [ -f "$brief" ] && [ -r "$brief" ] || return 2
-  markers=$(grep '^<!-- FIRSTMATE_COMPILED_HEADER' "$brief" || true)
-  count=$(printf '%s\n' "$markers" | awk 'NF { count++ } END { print count + 0 }')
-  [ "$count" -eq 0 ] && return 1
-  [ "$count" -eq 1 ] && [ "$markers" = '<!-- FIRSTMATE_COMPILED_HEADER v1 -->' ] || return 2
-  printf 'v1\n'
-}
-
 # shellcheck disable=SC2034  # The sourcing launch/control scripts read this diagnostic after a refusal.
 FM_BRIEF_PREFLIGHT_ERROR=
-fm_brief_compiled_task_preflight() {  # <data-dir> <task-id> <brief> <kind> <mode> <yolo> <compiled-header>
-  local data=$1 id=$2 brief=$3 kind=$4 mode=$5 yolo=$6 compiled_header=${7:-} header handoff handoff_status manifest_region manifests count
-  local manifest_kind manifest_mode manifest_yolo opening
+fm_brief_compiled_task_preflight() {  # <data-dir> <task-id> <brief> <kind> <mode> <yolo>
+  local data=$1 id=$2 brief=$3 kind=$4 mode=$5 yolo=$6 header manifest_region manifests count
+  local manifest_kind manifest_mode manifest_yolo
   FM_BRIEF_PREFLIGHT_ERROR=
-  case "$compiled_header" in ''|v1) ;; *)
-    FM_BRIEF_PREFLIGHT_ERROR="task $id's compiled-header provenance in its task record is malformed"
-    return 1 ;;
-  esac
   header="$data/$id/compiled-task-header.md"
-  if handoff=$(fm_brief_compiled_handoff_version "$brief"); then
-    :
-  else
-    handoff_status=$?
-    if [ "$handoff_status" -ne 1 ]; then
-      FM_BRIEF_PREFLIGHT_ERROR="task $id's compiler-header handoff marker is malformed"
-      return 1
-    fi
-    handoff=
-  fi
-  [ "$compiled_header" = v1 ] && handoff=v1
-  if [ -n "$handoff" ] || [ -e "$header" ] || [ -L "$header" ]; then
+  if [ -e "$header" ] || [ -L "$header" ]; then
     if [ ! -f "$header" ] || [ ! -r "$header" ] || [ -L "$header" ]; then
-      if [ -n "$handoff" ]; then
-        FM_BRIEF_PREFLIGHT_ERROR="task $id's compiler-header handoff requires its stored header, but it is unavailable: $header"
-      else
-        FM_BRIEF_PREFLIGHT_ERROR="task $id's compiled header is not a readable regular file: $header"
-      fi
+      FM_BRIEF_PREFLIGHT_ERROR="task $id's compiled header is not a readable regular file: $header"
       return 1
     fi
     if ! fm_brief_compiled_header_matches "$header" "$brief"; then
@@ -243,10 +208,8 @@ fm_brief_compiled_task_preflight() {  # <data-dir> <task-id> <brief> <kind> <mod
     FM_BRIEF_PREFLIGHT_ERROR="task $id's workflow manifest says kind=$manifest_kind mode=$manifest_mode yolo=$manifest_yolo but this spawn says kind=$kind mode=$mode yolo=$yolo"
     return 1
   fi
-  opening=$(fm_brief_task_opening_body "$brief")
-  if [ -z "$(printf '%s' "$opening" | tr -d '[:space:]')" ]; then
-    # shellcheck disable=SC2034  # The sourcing launch/control scripts read this diagnostic.
-    FM_BRIEF_PREFLIGHT_ERROR="task $id's schema-v2 brief is missing the compiler-returned opening Task before ## Captain's intent; regenerate it from the complete compiled header"
+  if [ ! -e "$header" ] && [ ! -L "$header" ]; then
+    FM_BRIEF_PREFLIGHT_ERROR="task $id's schema-v2 brief requires its stored compiler header: $header"
     return 1
   fi
 }

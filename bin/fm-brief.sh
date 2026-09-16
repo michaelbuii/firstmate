@@ -18,7 +18,7 @@
 # charter fill. Firstmate may adjust other sections when the task genuinely
 # deviates (e.g. working an existing external PR instead of shipping a new one).
 # Usage: fm-brief.sh <task-id> <repo-name> --mode <no-mistakes|direct-PR|local-only> [--herdr-lab] [--compiled-header-file <path>]
-#        fm-brief.sh <task-id> <repo-name> --scout [--herdr-lab] [--compiled-header-file <path>]
+#        fm-brief.sh <task-id> <repo-name> --scout [--herdr-lab]
 #        fm-brief.sh <task-id> --secondmate {<project>...|--no-projects}
 #   --scout writes the scout contract instead: the deliverable is a report at
 #   data/<task-id>/report.md (no branch, no push, no PR) and the worktree is scratch.
@@ -186,8 +186,8 @@ if [ "$KIND" = secondmate ] && [ "$HERDR_LAB" -eq 1 ]; then
   exit 1
 fi
 
-if [ "$KIND" = secondmate ] && [ "$COMPILED_HEADER_SET" -eq 1 ]; then
-  echo "error: --compiled-header-file applies only to crewmate ship or scout briefs" >&2
+if [ "$KIND" != ship ] && [ "$COMPILED_HEADER_SET" -eq 1 ]; then
+  echo "error: --compiled-header-file applies only to ship briefs" >&2
   exit 1
 fi
 
@@ -200,8 +200,8 @@ BRIEF="$DATA/$ID/brief.md"
 COMPILED_HEADER_DEST="$DATA/$ID/compiled-task-header.md"
 [ -e "$BRIEF" ] && { echo "error: $BRIEF already exists" >&2; exit 1; }
 
-validate_compiled_header() {  # <file> <ship|scout> <mode-or-empty>
-  local file=$1 kind=$2 mode=$3 identity manifest task manifest_kind manifest_mode manifest_yolo
+validate_compiled_header() {  # <file> <mode>
+  local file=$1 mode=$2 identity manifest task manifest_kind manifest_mode manifest_yolo
   [ -f "$file" ] && [ -r "$file" ] && [ ! -L "$file" ] || {
     echo "error: compiled header must be a readable regular file, not a symlink: $file" >&2
     return 1
@@ -234,28 +234,17 @@ validate_compiled_header() {  # <file> <ship|scout> <mode-or-empty>
     echo "error: compiled header Task contains a reserved provenance subsection heading" >&2
     return 1
   fi
-  if grep -q '^<!-- FIRSTMATE_COMPILED_HEADER' "$file"; then
-    echo "error: compiled header Task contains a reserved compiler-header handoff marker" >&2
-    return 1
-  fi
   manifest_kind=$(printf '%s\n' "$manifest" | sed -n 's/.* kind=\([^ ]*\) .*/\1/p')
   manifest_mode=$(printf '%s\n' "$manifest" | sed -n 's/.* mode=\([^ ]*\) .*/\1/p')
   manifest_yolo=$(printf '%s\n' "$manifest" | sed -n 's/.* yolo=\([^ ]*\) .*/\1/p')
-  if [ "$kind" = scout ]; then
-    [ "$manifest_kind" = scout ] && [ "$manifest_mode" = none ] && [ "$manifest_yolo" = none ] || {
-      echo "error: compiled header contract must be kind=scout mode=none yolo=none for a scout brief" >&2
-      return 1
-    }
-  else
-    [ "$manifest_kind" = ship ] && [ "$manifest_mode" = "$mode" ] || {
-      echo "error: compiled header contract kind=$manifest_kind mode=$manifest_mode does not match ship mode=$mode" >&2
-      return 1
-    }
-    case "$manifest_yolo" in on|off) ;; *)
-      echo "error: compiled ship header yolo must be on or off" >&2
-      return 1 ;;
-    esac
-  fi
+  [ "$manifest_kind" = ship ] && [ "$manifest_mode" = "$mode" ] || {
+    echo "error: compiled header contract kind=$manifest_kind mode=$manifest_mode does not match ship mode=$mode" >&2
+    return 1
+  }
+  case "$manifest_yolo" in on|off) ;; *)
+    echo "error: compiled ship header yolo must be on or off" >&2
+    return 1 ;;
+  esac
 }
 
 publish_compiled_header() {
@@ -271,7 +260,7 @@ publish_compiled_header() {
 
 if [ "$COMPILED_HEADER_SET" -eq 1 ]; then
   [ -n "$COMPILED_HEADER_FILE" ] || { echo "error: --compiled-header-file requires a non-empty value" >&2; exit 1; }
-  validate_compiled_header "$COMPILED_HEADER_FILE" "$KIND" "$MODE" || exit 1
+  validate_compiled_header "$COMPILED_HEADER_FILE" "$MODE" || exit 1
 fi
 mkdir -p "$DATA/$ID"
 
@@ -451,11 +440,6 @@ EOF
   fi
 }
 
-emit_compiled_header_handoff() {
-  [ "$COMPILED_HEADER_SET" -eq 1 ] || return 0
-  printf '\n<!-- FIRSTMATE_COMPILED_HEADER v1 -->\n'
-}
-
 if [ "$KIND" = scout ]; then
 {
 emit_worker_task_section
@@ -516,7 +500,6 @@ Before reporting done, read and follow \`$FM_ROOT/.agents/skills/captain-hold-li
 When the report is complete, append \`done: {one-line conclusion}\` to the status file and stop.
 If your findings reveal work that should ship (e.g. you reproduced a bug and the fix is clear), say so in the report; firstmate may promote this task in place, and you would then receive mode-specific ship instructions as a follow-up message.
 EOF
-emit_compiled_header_handoff
 } > "$BRIEF"
 publish_compiled_header || exit 1
 echo "scaffolded: $BRIEF (scout; replace {TASK} and {FIRSTMATE_SPEC})"
@@ -610,7 +593,6 @@ Keep it proportionate: skip \`AGENTS.md\` edits for trivial tasks that produced 
 
 $DOD
 EOF
-emit_compiled_header_handoff
 } > "$BRIEF"
 publish_compiled_header || exit 1
 echo "scaffolded: $BRIEF (ship, mode=$MODE; replace {TASK} and {FIRSTMATE_SPEC})"

@@ -532,7 +532,7 @@ Preserve durable structured identifiers, dependencies, and completion artifact l
 
 `bin/fm-brief.sh` and its help own scaffold syntax, generated variants, status protocol, delivery-mode definitions of done, and exact safety mechanics.
 Use its scaffold as the contract, then fill `## Captain's intent` (`{TASK}`) with the captain's own ask plus the context needed to read it, including the substance of any report, decision, or PR the ask refers to, and fill `## Firstmate spec` (`{FIRSTMATE_SPEC}`) with Firstmate's build instructions.
-When a compiler returns a complete typed worker header containing the identity, schema-v2 manifest, `# Task`, and opening Task text, pass that exact output to `fm-brief.sh --compiled-header-file`; the scaffold records the header and handoff marker, and launch records the compiler provenance in the task record, so never keep only its manifest, remove the stored header, or rebuild its Task from the two provenance subsections.
+When a compiler returns a complete typed worker header containing the identity, schema-v2 manifest, `# Task`, and opening Task text, pass that exact output to `fm-brief.sh --compiled-header-file`; the scaffold records its header, and schema-v2 launches require that stored header, so never keep only its manifest, remove the stored header, or rebuild its Task from the two provenance subsections.
 `bin/fm-dod-lib.sh` owns what a no-mistakes worker may pass as `--intent` and its rule that the string must be self-sufficient.
 Keep additions task-specific rather than repeating lifecycle instructions, and alter generated sections only when the task genuinely differs from the standard shape.
 

@@ -300,6 +300,41 @@ test_promote_refuses_a_symlinked_task_record() {
   pass "fm-promote: a symlinked task record is refused and its target is left untouched"
 }
 
+test_promote_refuses_compiler_backed_scouts() {
+  local home id meta header out status
+  home="$TMP_ROOT/promote-compiled-scout/home"
+  id=promote-compiled-scout
+  meta="$home/state/$id.meta"
+  header="$home/data/$id/compiled-task-header.md"
+  mkdir -p "$home/state" "$home/data/$id"
+  printf 'window=fm-%s\nkind=scout\nworktree=/tmp/wt\n' "$id" > "$meta"
+  cat > "$home/data/$id/brief.md" <<'EOF'
+# Task
+## Captain's intent
+Preserve the compiler-returned Task.
+
+## Firstmate spec
+Investigate the reported issue.
+EOF
+  cat > "$header" <<'EOF'
+You are a crewmate: an autonomous worker agent managed by firstmate. Work on your own; do not wait for a human.
+<!-- FIRSTMATE_WORKFLOW v2 registry=sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd kind=scout mode=none yolo=none playbook=feature overlays=impeccable ui=clarify -->
+# Task
+Preserve this compiler-backed scout Task.
+EOF
+  out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" \
+    "$PROMOTE" "$id" --mode direct-PR --yolo off 2>&1)
+  status=$?
+  [ "$status" -ne 0 ] || fail "compiler-backed scout promotion should refuse"
+  assert_contains "$out" "compiler-backed scouts cannot be promoted in place" \
+    "compiler-backed scout refusal did not name the required ship scaffold"
+  assert_grep 'kind=scout' "$meta" \
+    "refused compiler-backed scout promotion changed its task kind"
+  assert_absent "$home/data/$id/ship-instructions.md" \
+    "refused compiler-backed scout promotion published lossy ship instructions"
+  pass "fm-promote: compiler-backed scouts refuse lossy in-place promotion"
+}
+
 # The delivery contract only protects a worker that actually receives it. A promoted
 # scout used to get a free-form hint instead of the mode-specific Definition of done,
 # so it never saw the ask-user escalation rule or the --yes ban that every briefed
@@ -808,7 +843,7 @@ EOF
   out=$(run_spawn "$home" "$fakebin" "$lost_id" "$proj" claude --mode no-mistakes --yolo off)
   status=$?
   [ "$status" -ne 0 ] || fail "compiled brief with a deleted stored header should refuse"
-  assert_contains "$out" "compiler-header handoff requires its stored header" \
+  assert_contains "$out" "schema-v2 brief requires its stored compiler header" \
     "deleted compiler header did not refuse before validating altered manifest bytes"
   assert_absent "$home/data/$lost_id/launch-brief.md" \
     "deleted-header refusal still published launch instructions"
@@ -830,8 +865,8 @@ Delivery contract: mode=no-mistakes
 EOF
   out=$(run_spawn "$home" "$fakebin" "$missing_id" "$proj" claude --mode no-mistakes --yolo off)
   status=$?
-  [ "$status" -ne 0 ] || fail "schema-v2 brief missing its opening compiled Task should refuse"
-  assert_contains "$out" "missing the compiler-returned opening Task before ## Captain's intent" \
+  [ "$status" -ne 0 ] || fail "schema-v2 brief without its stored header should refuse"
+  assert_contains "$out" "schema-v2 brief requires its stored compiler header" \
     "Jira Risk Views task-loss shape did not receive the focused refusal"
   assert_absent "$home/data/$missing_id/launch-brief.md" \
     "task-loss refusal still published launch instructions"
@@ -889,6 +924,7 @@ test_spawn_notices_a_rigor_downgrade_against_the_registry
 test_scout_records_no_delivery_posture
 test_promote_requires_and_records_the_delivery_contract
 test_promote_refuses_a_symlinked_task_record
+test_promote_refuses_compiler_backed_scouts
 test_promotion_delivers_the_real_definition_of_done
 test_project_mode_maps_the_conditional_policy
 test_spawn_and_promote_require_filled_task_subsections
