@@ -598,7 +598,7 @@ fm_backend_expected_label_of_selector() {  # <raw-target> <state-dir>
 # boundaries keep runtime dispatch from importing all five adapter ASTs into
 # every dispatcher consumer while preserving the runtime source operations.
 fm_backend_source() {  # <name>
-  local name=$1
+  local name=$1 adapter
   fm_backend_validate "$name" || return 1
   case "$name" in
     tmux)
@@ -610,8 +610,10 @@ fm_backend_source() {  # <name>
       ;;
     herdr)
       if [ -z "${_FM_BACKEND_HERDR_SOURCED:-}" ]; then
+        adapter="$FM_BACKEND_LIB_DIR/backends/herdr.sh"
+        [ -f "$adapter" ] && [ ! -L "$adapter" ] || return 1
         # shellcheck source=/dev/null
-        . "$FM_BACKEND_LIB_DIR/backends/herdr.sh" || return 1
+        . "$adapter" || return 1
         _FM_BACKEND_HERDR_SOURCED=1
       fi
       ;;
