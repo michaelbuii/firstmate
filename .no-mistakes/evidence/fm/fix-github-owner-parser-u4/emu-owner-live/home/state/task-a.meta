@@ -1,0 +1,8 @@
+window=firstmate:fm-task-a
+endpoint_task_id=task-a
+worktree=/Users/michael.bui/.no-mistakes/evidence/01M2NYNBD685TK9RC27FCQHBTJ/emu-owner-live/worktree
+project=Jira-Risk-Register
+kind=ship
+mode=no-mistakes
+pr=https://github.com/michael-bui_o2e/Jira-Risk-Register/pull/2
+pr_head=e87092bc1a252ff437bd7b49ba8732bd868a946b

@@ -1,0 +1,7 @@
+LIVE EMU PR validation against GitHub
+1. Register canonical URL with production fm-pr-check:
+armed: state/task-a.check.sh
+2. Run generated production static poll artifact against GitHub:
+merged
+3. Adversarial malformed managed owner is rejected before state is armed:
+malformed_exit=2 stderr=error: invalid PR check request  task-b-poll-exists=no
