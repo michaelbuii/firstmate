@@ -545,7 +545,7 @@ EOF
   [ "$(cat "$dir/fake/command")" = claude ] \
     || fail "changed Task refusal stopped the existing agent"
 
-  rm -f "$header"
+  rm -f "$header" "$dir/home/state/$id.compiler-header"
   perl -0pi -e 's{^<!-- FIRSTMATE_WORKFLOW v2 [^\n]* -->\n}{}m' "$brief"
   before=$(LC_ALL=C wc -l < "$dir/fake/literal" | tr -d ' ')
   out=$(run_control "$dir" "$id" relaunch --note "missing header must refuse before stop"); rc=$?
