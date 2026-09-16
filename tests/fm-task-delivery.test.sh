@@ -748,6 +748,96 @@ EOF
   pass "fm-spawn/fm-promote: leftover Task placeholders are refused until both subsections are filled"
 }
 
+test_compiled_task_survives_launch_and_changed_task_refuses() {
+  local rec home proj fakebin header id source launch source_task launch_task bytes out status lost_id missing_id
+  rec=$(make_home compiled-task-launch)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  header="$TMP_ROOT/compiled-task-launch/header.md"
+  cat > "$header" <<'EOF'
+You are a crewmate: an autonomous worker agent managed by firstmate. Work on your own; do not wait for a human.
+<!-- FIRSTMATE_WORKFLOW v2 registry=sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb kind=ship mode=no-mistakes yolo=off playbook=feature overlays=impeccable,vercel-react-best-practices ui=clarify -->
+# Task
+Poteto mode task:
+
+Implement the Jira Risk Views React controls with Impeccable.
+Keep the second compiled Task line byte-for-byte.
+EOF
+  id=compiled-launch-a1
+  FM_HOME="$home" "$BRIEF" "$id" proj --mode no-mistakes \
+    --compiled-header-file "$header" >/dev/null 2>&1 \
+    || fail "compiler-backed brief should scaffold"
+  fill_brief_subsections "$home/data/$id/brief.md" \
+    "Implement the settled Jira risk-view behavior." \
+    "Keep manifest validation strict and test the UI route."
+  source="$home/data/$id/brief.md"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
+  assert_not_contains "$out" "compiled Task or schema-v2 manifest changed" \
+    "unchanged compiled Task was refused"
+  launch="$home/data/$id/launch-brief.md"
+  assert_present "$launch" "ordinary launch did not render instructions"
+  bytes=$(LC_ALL=C wc -c < "$header" | tr -d ' ')
+  LC_ALL=C dd if="$launch" bs=1 count="$bytes" 2>/dev/null | cmp -s "$header" - \
+    || fail "ordinary launch dropped or rebuilt compiler-returned Task bytes"
+  source_task="$TMP_ROOT/compiled-task-launch/source-task"
+  launch_task="$TMP_ROOT/compiled-task-launch/launch-task"
+  awk '$0 == "# Task" { emit=1 } emit && $0 == "# Herdr lifecycle declaration - NOT ENABLED" { exit } emit { print }' "$source" > "$source_task"
+  awk '$0 == "# Task" { emit=1 } emit && $0 == "# Herdr lifecycle declaration - NOT ENABLED" { exit } emit { print }' "$launch" > "$launch_task"
+  cmp -s "$source_task" "$launch_task" \
+    || fail "Captain intent serialization changed the Task section in launch instructions"
+  assert_grep 'overlays=impeccable,vercel-react-best-practices ui=clarify' "$launch" \
+    "launch changed the compiler-selected Impeccable and React overlays"
+
+  perl -0pi -e 's/Keep the second compiled Task line byte-for-byte\./Change the compiled Task route./' "$source"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "changed compiled Task should refuse before launch"
+  assert_contains "$out" "compiled Task or schema-v2 manifest changed after scaffolding" \
+    "changed compiled Task did not identify its canonical header mismatch"
+
+  lost_id=compiled-task-lost-a2
+  FM_HOME="$home" "$BRIEF" "$lost_id" proj --mode no-mistakes \
+    --compiled-header-file "$header" >/dev/null 2>&1 \
+    || fail "compiler-backed brief for lost-header refusal should scaffold"
+  fill_brief_subsections "$home/data/$lost_id/brief.md" \
+    "Implement the settled Jira risk-view behavior." \
+    "Keep manifest validation strict and test the UI route."
+  rm -f "$home/data/$lost_id/compiled-task-header.md"
+  perl -0pi -e 's{^<!-- FIRSTMATE_WORKFLOW v2 [^\n]* -->\n}{}m; s/Keep the second compiled Task line byte-for-byte\./Replace the compiler-returned Task line./' "$home/data/$lost_id/brief.md"
+  out=$(run_spawn "$home" "$fakebin" "$lost_id" "$proj" claude --mode no-mistakes --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "compiled brief with a deleted stored header should refuse"
+  assert_contains "$out" "compiler-header provenance requires its stored header" \
+    "deleted compiler header did not refuse before validating altered manifest bytes"
+  assert_absent "$home/data/$lost_id/launch-brief.md" \
+    "deleted-header refusal still published launch instructions"
+
+  missing_id=compiled-task-missing-a3
+  mkdir -p "$home/data/$missing_id"
+  cat > "$home/data/$missing_id/brief.md" <<'EOF'
+You are a crewmate: an autonomous worker agent managed by firstmate. Work on your own; do not wait for a human.
+<!-- FIRSTMATE_WORKFLOW v2 registry=sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb kind=ship mode=no-mistakes yolo=off playbook=feature overlays=impeccable,vercel-react-best-practices ui=clarify -->
+# Task
+## Captain's intent
+Implement the settled Jira risk-view behavior.
+
+## Firstmate spec
+Keep manifest validation strict and test the UI route.
+
+# Definition of done
+Delivery contract: mode=no-mistakes
+EOF
+  out=$(run_spawn "$home" "$fakebin" "$missing_id" "$proj" claude --mode no-mistakes --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "schema-v2 brief without its stored header should refuse"
+  assert_contains "$out" "schema-v2 brief requires its stored compiler header" \
+    "Jira Risk Views task-loss shape did not receive the focused refusal"
+  assert_absent "$home/data/$missing_id/launch-brief.md" \
+    "task-loss refusal still published launch instructions"
+  pass "fm-spawn: compiled multiline Task survives launch and genuine Task changes refuse"
+}
+
 test_spawn_refreshes_legacy_worker_roles() {
   local rec home proj fakebin kind id out brief project_kind
   rec=$(make_home worker-roles)
@@ -791,6 +881,7 @@ EOF
 }
 
 test_spawn_refreshes_legacy_worker_roles
+test_compiled_task_survives_launch_and_changed_task_refuses
 test_ship_spawn_requires_a_valid_delivery_contract
 test_scout_and_secondmate_refuse_delivery_flags
 test_spawn_refuses_a_brief_mode_mismatch

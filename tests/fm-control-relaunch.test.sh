@@ -495,6 +495,70 @@ test_relaunch_appends_the_progress_note_to_the_instructions() {
   pass "fm-control relaunch: the progress note lands in the instructions the replacement reads"
 }
 
+test_relaunch_preserves_compiled_task_and_refuses_changed_task_before_stop() {
+  local dir id header_source header brief launch bytes source_task launch_task out rc before after
+  id=rl-compiled
+  dir=$(new_case compiled-task "$id")
+  add_ship_task "$dir" "$id" claude
+  header_source="$dir/compiled-header.md"
+  cat > "$header_source" <<'EOF'
+You are a crewmate: an autonomous worker agent managed by firstmate. Work on your own; do not wait for a human.
+<!-- FIRSTMATE_WORKFLOW v2 registry=sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc kind=ship mode=no-mistakes yolo=off playbook=feature overlays=impeccable,vercel-react-best-practices ui=clarify -->
+# Task
+Poteto mode task:
+
+Continue the multiline React dashboard implementation.
+Preserve this exact Task through every relaunch.
+EOF
+  brief="$dir/home/data/$id/brief.md"
+  rm -f "$brief"
+  FM_HOME="$dir/home" "$ROOT/bin/fm-brief.sh" "$id" fixture-project --mode no-mistakes \
+    --compiled-header-file "$header_source" >/dev/null 2>&1 \
+    || fail "compiler-backed relaunch brief should scaffold"
+  perl -0pi -e 's/\{TASK\}/Implement the settled dashboard behavior./; s/\{FIRSTMATE_SPEC\}/Keep the exact compiled Task while continuing the implementation./' "$brief"
+  header="$dir/home/data/$id/compiled-task-header.md"
+
+  out=$(run_control "$dir" "$id" relaunch --note "continue after the compiler-backed launch"); rc=$?
+  expect_code 0 "$rc" "compiler-backed relaunch should succeed"$'\n'"$out"
+  launch="$dir/home/data/$id/launch-brief.md"
+  assert_present "$launch" "relaunch did not render replacement instructions"
+  bytes=$(LC_ALL=C wc -c < "$header" | tr -d ' ')
+  LC_ALL=C dd if="$launch" bs=1 count="$bytes" 2>/dev/null | cmp -s "$header" - \
+    || fail "relaunch changed the compiler-returned Task or manifest bytes"
+  source_task="$dir/source-task"
+  launch_task="$dir/launch-task"
+  awk '$0 == "# Task" { emit=1 } emit && $0 == "# Definition of done" { exit } emit { print }' "$brief" > "$source_task"
+  awk '$0 == "# Task" { emit=1 } emit && $0 == "# Definition of done" { exit } emit { print }' "$launch" > "$launch_task"
+  cmp -s "$source_task" "$launch_task" \
+    || fail "relaunch did not preserve the stored brief Task section byte-for-byte"
+  assert_grep "continue after the compiler-backed launch" "$launch" \
+    "relaunch instructions omitted the progress note"
+
+  perl -0pi -e 's/Preserve this exact Task through every relaunch\./Use a genuinely changed Task./' "$brief"
+  before=$(LC_ALL=C wc -l < "$dir/fake/literal" | tr -d ' ')
+  out=$(run_control "$dir" "$id" relaunch --note "this must refuse before stop"); rc=$?
+  after=$(LC_ALL=C wc -l < "$dir/fake/literal" | tr -d ' ')
+  expect_code 1 "$rc" "changed compiled Task must refuse a relaunch"
+  assert_contains "$out" "compiled Task or schema-v2 manifest changed after scaffolding" \
+    "changed relaunch Task did not identify its canonical header mismatch"
+  [ "$before" = "$after" ] || fail "changed Task refusal delivered lifecycle input before stopping"
+  [ "$(cat "$dir/fake/command")" = claude ] \
+    || fail "changed Task refusal stopped the existing agent"
+
+  rm -f "$header" "$dir/home/state/$id.compiler-header"
+  perl -0pi -e 's{^<!-- FIRSTMATE_WORKFLOW v2 [^\n]* -->\n}{}m' "$brief"
+  before=$(LC_ALL=C wc -l < "$dir/fake/literal" | tr -d ' ')
+  out=$(run_control "$dir" "$id" relaunch --note "missing header must refuse before stop"); rc=$?
+  after=$(LC_ALL=C wc -l < "$dir/fake/literal" | tr -d ' ')
+  expect_code 1 "$rc" "missing compiled header must refuse a relaunch"
+  assert_contains "$out" "compiler-header provenance requires its stored header" \
+    "missing compiled header did not identify the durable stored-header refusal"
+  [ "$before" = "$after" ] || fail "missing-header refusal delivered lifecycle input before stopping"
+  [ "$(cat "$dir/fake/command")" = claude ] \
+    || fail "missing-header refusal stopped the existing agent"
+  pass "fm-control relaunch: compiled Task bytes survive and changed Tasks refuse before stop"
+}
+
 test_relaunch_requires_a_note_for_a_ship_task() {
   local dir out rc before
   dir=$(new_case nonote rl3)
@@ -1564,6 +1628,7 @@ test_relaunch_preserves_durable_task_metadata
 test_relaunch_serializes_concurrent_durable_metadata_publication
 test_disabled_relaunch_clears_prior_trace_context
 test_relaunch_appends_the_progress_note_to_the_instructions
+test_relaunch_preserves_compiled_task_and_refuses_changed_task_before_stop
 test_relaunch_requires_a_note_for_a_ship_task
 test_harness_switch_moves_the_record_and_clears_prior_wiring
 test_harness_switch_does_not_carry_the_old_profile_axes

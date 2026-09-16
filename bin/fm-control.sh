@@ -46,6 +46,10 @@
 #              inherits the local copy but none of the conversation; a
 #              secondmate reconciles its own home's records at startup, so its
 #              standing charter is never rewritten.
+#              Before checkpointing or stopping a ship or scout, its source
+#              brief's compiler-header binding is checked, so a source-brief
+#              mismatch in the compiled Task or manifest, or a missing header
+#              for a schema-v2 brief, leaves the old agent running.
 #              Records a durable checkpoint and that note, exits the old agent,
 #              then delegates the launch to its single owner,
 #              bin/fm-spawn.sh --relaunch. A failure before publication keeps
@@ -132,6 +136,8 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 . "$SCRIPT_DIR/fm-busy-lib.sh"
 # shellcheck source=bin/fm-control-lib.sh
 . "$SCRIPT_DIR/fm-control-lib.sh"
+# shellcheck source=bin/fm-dod-lib.sh
+. "$SCRIPT_DIR/fm-dod-lib.sh"
 # shellcheck source=bin/fm-pr-lib.sh
 . "$SCRIPT_DIR/fm-pr-lib.sh"
 # shellcheck source=bin/fm-wake-lib.sh
@@ -787,7 +793,7 @@ record_note() {
 }
 
 do_relaunch() {
-  local exit_result state note_line
+  local exit_result state note_line relaunch_mode relaunch_yolo relaunch_compiled_header
   local -a spawn_args
 
   require_state_verified_backend relaunch
@@ -800,6 +806,11 @@ do_relaunch() {
         || die "task $ID has no instructions at $RELAUNCH_BRIEF; refusing to relaunch a worker with nothing to work from"
       [ "$NOTE_SET" = 1 ] && [ -n "$NOTE" ] \
         || die "relaunch of a $KIND task requires --note (or --note-file): the replacement worker inherits the local copy but none of the conversation, so it must be told what happened"
+      relaunch_mode=$(fm_meta_get "$META" mode)
+      relaunch_yolo=$(fm_meta_get "$META" yolo)
+      relaunch_compiled_header=$(fm_meta_get "$META" compiled_header)
+      fm_brief_compiled_task_preflight "$DATA" "$STATE" "$ID" "$RELAUNCH_BRIEF" "$KIND" "$relaunch_mode" "$relaunch_yolo" "$relaunch_compiled_header" \
+        || die "$FM_BRIEF_PREFLIGHT_ERROR"
       ;;
     secondmate)
       # The charter in the secondmate's own home is its instruction source and

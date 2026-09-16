@@ -16,7 +16,12 @@
 #   placeholders, an empty Task, or an incomplete pair of Task subsections.
 #   Every ship or scout spawn renders `launch-brief.md`; for a no-mistakes ship
 #   it also carries the current `--intent` contract and the extracted captain
-#   intent. A legacy mixed Task is accepted there only under bin/fm-dod-lib.sh's
+#   intent. A ship scaffold created from a compiler-returned typed header stores
+#   that header at data/<id>/compiled-task-header.md. Fresh launches and relaunches
+#   require those exact manifest and opening-Task bytes at the start of both the
+#   source brief and rendered launch instructions. A schema-v2 brief without
+#   that header is refused, so it cannot silently lose its compiled opening Task.
+#   A legacy mixed Task is accepted there only under bin/fm-dod-lib.sh's
 #   provenance-marking rules; unmarked legacy Tasks stop for migration rather
 #   than becoming intent. That library owns the parsing and intent rules. When
 #   the explicit mode carries less rigor than the project's standing posture, a
@@ -459,6 +464,7 @@ MODE_SET=0
 YOLO_SET=0
 TRACEPARENT_SET=0
 RELAUNCH=0
+COMPILED_HEADER_PROVENANCE=
 POS=()
 want_value=
 for a in "$@"; do
@@ -1292,6 +1298,7 @@ if [ "$RELAUNCH" -eq 1 ]; then
   [ -n "$KIND" ] || KIND=ship
   MODE=$(fm_meta_get "$RELAUNCH_META" mode)
   YOLO=$(fm_meta_get "$RELAUNCH_META" yolo)
+  COMPILED_HEADER_PROVENANCE=$(fm_meta_get "$RELAUNCH_META" compiled_header)
   RELAUNCH_WT=$(fm_meta_get "$RELAUNCH_META" worktree)
   [ -n "$RELAUNCH_WT" ] && [ -d "$RELAUNCH_WT" ] || {
     echo "error: task $ID's recorded worktree '${RELAUNCH_WT:-none}' is missing; refusing to relaunch without the local copy its work lives in" >&2
@@ -2194,6 +2201,17 @@ if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ];
 fi
 [ -f "$BRIEF" ] || { echo "error: task $ID has no brief at inaccessible data path $BRIEF" >&2; exit 1; }
 if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
+  COMPILED_HEADER="$DATA/$ID/compiled-task-header.md"
+  if [ -z "$COMPILED_HEADER_PROVENANCE" ] \
+     && { [ -e "$STATE/$ID.compiler-header" ] || [ -L "$STATE/$ID.compiler-header" ] \
+          || [ -e "$COMPILED_HEADER" ] || [ -L "$COMPILED_HEADER" ]; }; then
+    COMPILED_HEADER_PROVENANCE=v1
+  fi
+  if ! fm_brief_compiled_task_preflight "$DATA" "$STATE" "$ID" "$BRIEF" "$KIND" "$MODE" "$YOLO" "$COMPILED_HEADER_PROVENANCE"; then
+    echo "error: $FM_BRIEF_PREFLIGHT_ERROR" >&2
+    exit 1
+  fi
+
   if fm_brief_task_placeholders_present "$BRIEF"; then
     echo "error: $BRIEF still contains {TASK} or {FIRSTMATE_SPEC}; fill ## Captain's intent and ## Firstmate spec before spawn" >&2
     exit 1
@@ -2231,6 +2249,13 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
     rm -f -- "$BRIEF_TMP"
     echo "error: could not publish current launch contract for $SOURCE_BRIEF" >&2
     exit 1
+  fi
+  if [ -e "$COMPILED_HEADER" ] || [ -L "$COMPILED_HEADER" ]; then
+    if ! fm_brief_compiled_header_matches "$COMPILED_HEADER" "$BRIEF"; then
+      rm -f -- "$BRIEF"
+      echo "error: rendered launch instructions did not preserve task $ID's compiled Task and schema-v2 manifest bytes" >&2
+      exit 1
+    fi
   fi
 fi
 
@@ -3620,7 +3645,7 @@ SPAWN_META_PATH=$SPAWN_META_TMP
 preserve_relaunch_meta() {
   awk -F= '
     BEGIN {
-      split("window endpoint_task_id worktree project harness kind mode yolo tasktmp model effort busy_gen spawn_gen traceparent backend herdr_session herdr_workspace_id herdr_tab_id herdr_pane_id zellij_session zellij_tab_id zellij_pane_id orca_worktree_id terminal cmux_workspace_id cmux_surface_id home projects control_relaunch_tx", keys, " ")
+      split("window endpoint_task_id worktree project harness kind mode yolo compiled_header tasktmp model effort busy_gen spawn_gen traceparent backend herdr_session herdr_workspace_id herdr_tab_id herdr_pane_id zellij_session zellij_tab_id zellij_pane_id orca_worktree_id terminal cmux_workspace_id cmux_surface_id home projects control_relaunch_tx", keys, " ")
       for (i in keys) owned[keys[i]] = 1
     }
     !($1 in owned)
@@ -3635,6 +3660,7 @@ preserve_relaunch_meta() {
   echo "kind=$KIND"
   [ -z "$MODE" ] || echo "mode=$MODE"
   [ -z "$YOLO" ] || echo "yolo=$YOLO"
+  [ -z "$COMPILED_HEADER_PROVENANCE" ] || echo "compiled_header=$COMPILED_HEADER_PROVENANCE"
   echo "tasktmp=$TASK_TMP"
   echo "model=${MODEL:-default}"
   echo "effort=${EFFORT:-default}"

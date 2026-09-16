@@ -7,12 +7,17 @@
 # own ask plus the context needed to read it, including the substance of any
 # report, decision, or PR the ask refers to) and `{FIRSTMATE_SPEC}`
 # under `## Firstmate spec` (build instructions, which are never the captain's
-# intent). bin/fm-dod-lib.sh owns the no-mistakes `--intent` contract those
-# subsections feed; bin/fm-spawn.sh refuses leftover placeholders. Secondmate
-# charters still use a single `{TASK}` charter fill. Firstmate may adjust other
-# sections when the task genuinely deviates (e.g. working an existing external
-# PR instead of shipping a new one).
-# Usage: fm-brief.sh <task-id> <repo-name> --mode <no-mistakes|direct-PR|local-only> [--herdr-lab]
+# intent). When an external compiler returns a complete typed ship header,
+# pass its exact bytes through `--compiled-header-file`; the scaffold stores
+# those bytes at data/<task-id>/compiled-task-header.md and places them before
+# the two provenance subsections without rebuilding its Task. bin/fm-spawn.sh
+# then requires that stored header and its Task remain the exact prefix of every
+# launch and relaunch instruction. bin/fm-dod-lib.sh owns the no-mistakes
+# `--intent` contract the Captain's intent subsection feeds; bin/fm-spawn.sh
+# refuses leftover placeholders. Secondmate charters still use a single `{TASK}`
+# charter fill. Firstmate may adjust other sections when the task genuinely
+# deviates (e.g. working an existing external PR instead of shipping a new one).
+# Usage: fm-brief.sh <task-id> <repo-name> --mode <no-mistakes|direct-PR|local-only> [--herdr-lab] [--compiled-header-file <path>]
 #        fm-brief.sh <task-id> <repo-name> --scout [--herdr-lab]
 #        fm-brief.sh <task-id> --secondmate {<project>...|--no-projects}
 #   --scout writes the scout contract instead: the deliverable is a report at
@@ -121,6 +126,8 @@ HERDR_LAB=0
 NO_PROJECTS=0
 MODE=
 MODE_SET=0
+COMPILED_HEADER_FILE=
+COMPILED_HEADER_SET=0
 POS=()
 want_value=
 for a in "$@"; do
@@ -130,6 +137,7 @@ for a in "$@"; do
     esac
     case "$want_value" in
       mode) MODE=$a; MODE_SET=1 ;;
+      compiled-header-file) COMPILED_HEADER_FILE=$a; COMPILED_HEADER_SET=1 ;;
       *) echo "error: internal parser state for --$want_value" >&2; exit 1 ;;
     esac
     want_value=
@@ -142,6 +150,8 @@ for a in "$@"; do
     --no-projects) NO_PROJECTS=1 ;;
     --mode) want_value=mode ;;
     --mode=*) MODE=${a#--mode=}; MODE_SET=1 ;;
+    --compiled-header-file) want_value=compiled-header-file ;;
+    --compiled-header-file=*) COMPILED_HEADER_FILE=${a#--compiled-header-file=}; COMPILED_HEADER_SET=1 ;;
     # yolo never reaches the worker: it is firstmate's merge authority, not a
     # brief input. Refuse it loudly so it is never silently dropped here and then
     # believed to have been recorded.
@@ -176,13 +186,98 @@ if [ "$KIND" = secondmate ] && [ "$HERDR_LAB" -eq 1 ]; then
   exit 1
 fi
 
+if [ "$KIND" != ship ] && [ "$COMPILED_HEADER_SET" -eq 1 ]; then
+  echo "error: --compiled-header-file applies only to ship briefs" >&2
+  exit 1
+fi
+
 if [ "$NO_PROJECTS" -eq 1 ] && [ "$KIND" != secondmate ]; then
   echo "error: --no-projects applies only to --secondmate charters" >&2
   exit 1
 fi
 
 BRIEF="$DATA/$ID/brief.md"
+COMPILED_HEADER_DEST="$DATA/$ID/compiled-task-header.md"
+COMPILED_HEADER_PROVENANCE="$STATE/$ID.compiler-header"
 [ -e "$BRIEF" ] && { echo "error: $BRIEF already exists" >&2; exit 1; }
+if [ "$COMPILED_HEADER_SET" -eq 1 ] \
+   && { [ -e "$COMPILED_HEADER_DEST" ] || [ -L "$COMPILED_HEADER_DEST" ] \
+        || [ -e "$COMPILED_HEADER_PROVENANCE" ] || [ -L "$COMPILED_HEADER_PROVENANCE" ]; }; then
+  echo "error: task $ID already has compiler-header provenance" >&2
+  exit 1
+fi
+
+validate_compiled_header() {  # <file> <mode>
+  local file=$1 mode=$2 identity manifest task manifest_kind manifest_mode manifest_yolo
+  [ -f "$file" ] && [ -r "$file" ] && [ ! -L "$file" ] || {
+    echo "error: compiled header must be a readable regular file, not a symlink: $file" >&2
+    return 1
+  }
+  identity=$(sed -n '1p' "$file")
+  manifest=$(sed -n '2p' "$file")
+  [ "$identity" = 'You are a crewmate: an autonomous worker agent managed by firstmate. Work on your own; do not wait for a human.' ] || {
+    echo "error: compiled header does not begin with the exact Firstmate crewmate identity" >&2
+    return 1
+  }
+  printf '%s\n' "$manifest" | LC_ALL=C grep -Eq '^<!-- FIRSTMATE_WORKFLOW v2 registry=sha256:[0-9a-f]{64} kind=(ship|scout) mode=(no-mistakes|direct-PR|local-only|none) yolo=(on|off|none) playbook=(none|[a-z0-9]+(-[a-z0-9]+)*) overlays=(none|[a-z0-9]+(-[a-z0-9]+)*(,[a-z0-9]+(-[a-z0-9]+)*)*) ui=(none|[a-z0-9]+(-[a-z0-9]+)*) -->$' || {
+    echo "error: compiled header does not contain one exact schema-v2 workflow manifest after the identity" >&2
+    return 1
+  }
+  [ "$(sed -n '3p' "$file")" = '# Task' ] || {
+    echo "error: compiled header does not place # Task immediately after its schema-v2 manifest" >&2
+    return 1
+  }
+  task=$(tail -n +4 "$file")
+  [ -n "$(printf '%s' "$task" | tr -d '[:space:]')" ] || {
+    echo "error: compiled header Task is empty" >&2
+    return 1
+  }
+  if printf '%s\n' "$task" | grep -Eq '^#([[:space:]]|$)'; then
+    echo "error: compiled header Task contains a level-one heading" >&2
+    return 1
+  fi
+  if fm_brief_heading_present "$file" "## Captain's intent" \
+     || fm_brief_heading_present "$file" "## Firstmate spec"; then
+    echo "error: compiled header Task contains a reserved provenance subsection heading" >&2
+    return 1
+  fi
+  manifest_kind=$(printf '%s\n' "$manifest" | sed -n 's/.* kind=\([^ ]*\) .*/\1/p')
+  manifest_mode=$(printf '%s\n' "$manifest" | sed -n 's/.* mode=\([^ ]*\) .*/\1/p')
+  manifest_yolo=$(printf '%s\n' "$manifest" | sed -n 's/.* yolo=\([^ ]*\) .*/\1/p')
+  [ "$manifest_kind" = ship ] && [ "$manifest_mode" = "$mode" ] || {
+    echo "error: compiled header contract kind=$manifest_kind mode=$manifest_mode does not match ship mode=$mode" >&2
+    return 1
+  }
+  case "$manifest_yolo" in on|off) ;; *)
+    echo "error: compiled ship header yolo must be on or off" >&2
+    return 1 ;;
+  esac
+}
+
+publish_compiled_header() {
+  local header_tmp provenance_tmp
+  [ "$COMPILED_HEADER_SET" -eq 1 ] || return 0
+  mkdir -p "$STATE" || {
+    rm -f "$BRIEF"
+    echo "error: could not create compiler-header provenance state at $STATE" >&2
+    return 1
+  }
+  header_tmp="$COMPILED_HEADER_DEST.tmp.${BASHPID:-$$}"
+  provenance_tmp="$COMPILED_HEADER_PROVENANCE.tmp.${BASHPID:-$$}"
+  if ! cat "$COMPILED_HEADER_FILE" > "$header_tmp" \
+     || ! printf 'v1\n' > "$provenance_tmp" \
+     || ! mv "$header_tmp" "$COMPILED_HEADER_DEST" \
+     || ! mv "$provenance_tmp" "$COMPILED_HEADER_PROVENANCE"; then
+    rm -f "$header_tmp" "$provenance_tmp" "$BRIEF" "$COMPILED_HEADER_DEST" "$COMPILED_HEADER_PROVENANCE"
+    echo "error: could not store compiler-header provenance for task $ID" >&2
+    return 1
+  fi
+}
+
+if [ "$COMPILED_HEADER_SET" -eq 1 ]; then
+  [ -n "$COMPILED_HEADER_FILE" ] || { echo "error: --compiled-header-file requires a non-empty value" >&2; exit 1; }
+  validate_compiled_header "$COMPILED_HEADER_FILE" "$MODE" || exit 1
+fi
 mkdir -p "$DATA/$ID"
 
 ASK_USER_BLOCK=
@@ -343,7 +438,14 @@ EOF
 HERDR_SECTION=${HERDR_SECTION%$'\n'}
 fi
 
-IFS= read -r -d '' TASK_SECTION <<'EOF' || true
+emit_worker_task_section() {
+  if [ "$COMPILED_HEADER_SET" -eq 1 ]; then
+    cat "$COMPILED_HEADER_FILE"
+    printf '\n\n## Captain'"'"'s intent\n{TASK}\n\n## Firstmate spec\n{FIRSTMATE_SPEC}\n'
+  else
+    cat <<'EOF'
+You are a crewmate: an autonomous worker agent managed by firstmate. Work on your own; do not wait for a human.
+
 # Task
 ## Captain's intent
 {TASK}
@@ -351,13 +453,13 @@ IFS= read -r -d '' TASK_SECTION <<'EOF' || true
 ## Firstmate spec
 {FIRSTMATE_SPEC}
 EOF
-TASK_SECTION=${TASK_SECTION%$'\n'}
+  fi
+}
 
 if [ "$KIND" = scout ]; then
-cat > "$BRIEF" <<EOF
-You are a crewmate: an autonomous worker agent managed by firstmate. Work on your own; do not wait for a human.
-
-$TASK_SECTION
+{
+emit_worker_task_section
+cat <<EOF
 
 $HERDR_SECTION
 
@@ -414,6 +516,8 @@ Before reporting done, read and follow \`$FM_ROOT/.agents/skills/captain-hold-li
 When the report is complete, append \`done: {one-line conclusion}\` to the status file and stop.
 If your findings reveal work that should ship (e.g. you reproduced a bug and the fix is clear), say so in the report; firstmate may promote this task in place, and you would then receive mode-specific ship instructions as a follow-up message.
 EOF
+} > "$BRIEF"
+publish_compiled_header || exit 1
 echo "scaffolded: $BRIEF (scout; replace {TASK} and {FIRSTMATE_SPEC})"
 exit 0
 fi
@@ -440,10 +544,9 @@ case "$MODE" in
 esac
 DOD=$(fm_dod_block "$MODE" "$ID") || exit 1
 
-cat > "$BRIEF" <<EOF
-You are a crewmate: an autonomous worker agent managed by firstmate. Work on your own; do not wait for a human.
-
-$TASK_SECTION
+{
+emit_worker_task_section
+cat <<EOF
 
 $HERDR_SECTION
 
@@ -506,4 +609,6 @@ Keep it proportionate: skip \`AGENTS.md\` edits for trivial tasks that produced 
 
 $DOD
 EOF
+} > "$BRIEF"
+publish_compiled_header || exit 1
 echo "scaffolded: $BRIEF (ship, mode=$MODE; replace {TASK} and {FIRSTMATE_SPEC})"

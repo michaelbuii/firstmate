@@ -93,6 +93,14 @@ fm_brief_heading_parse() {  # <file|-> <heading> <body|present>
         }
       }
 
+      if (mode == "before") {
+        if (!was_fenced && line == heading) {
+          found = 1
+          exit
+        }
+        print line
+        next
+      }
       if (!found && !was_fenced && line == heading) {
         found = 1
         if (mode == "present") next
@@ -124,6 +132,10 @@ fm_brief_heading_present() {  # <file> <heading>
   fm_brief_heading_parse "$1" "$2" present >/dev/null
 }
 
+fm_brief_heading_prefix() {  # <file|-> <heading>
+  fm_brief_heading_parse "$1" "$2" before
+}
+
 fm_brief_task_heading_body() {  # <file> <heading>
   local task
   task=$(fm_brief_heading_body "$1" "# Task")
@@ -134,6 +146,87 @@ fm_brief_task_heading_present() {  # <file> <heading>
   local task
   task=$(fm_brief_heading_body "$1" "# Task")
   printf '%s\n' "$task" | fm_brief_heading_parse - "$2" present >/dev/null
+}
+
+# A compiler-backed brief stores the compiler's complete typed header separately.
+# The source brief and every launch overlay must begin with those bytes followed
+# immediately by the Captain's intent subsection marker. This binds the exact
+# schema-v2 manifest and opening Task without parsing or rebuilding either one.
+fm_brief_compiled_header_matches() {  # <compiled-header> <brief>
+  local header=$1 brief=$2 header_bytes marker_bytes expected_bytes brief_bytes
+  [ -f "$header" ] && [ -r "$header" ] && [ ! -L "$header" ] || return 1
+  [ -f "$brief" ] && [ -r "$brief" ] && [ ! -L "$brief" ] || return 1
+  header_bytes=$(LC_ALL=C wc -c < "$header" | tr -d ' ')
+  marker_bytes=$(printf '\n\n## Captain'"'"'s intent\n' | LC_ALL=C wc -c | tr -d ' ')
+  expected_bytes=$((header_bytes + marker_bytes))
+  brief_bytes=$(LC_ALL=C wc -c < "$brief" | tr -d ' ')
+  [ "$brief_bytes" -ge "$expected_bytes" ] || return 1
+  cmp -s \
+    <({ cat "$header"; printf '\n\n## Captain'"'"'s intent\n'; }) \
+    <(LC_ALL=C dd if="$brief" bs=1 count="$expected_bytes" 2>/dev/null)
+}
+
+# shellcheck disable=SC2034  # The sourcing launch/control scripts read this diagnostic after a refusal.
+FM_BRIEF_PREFLIGHT_ERROR=
+fm_brief_compiled_task_preflight() {  # <data-dir> <state-dir> <task-id> <brief> <kind> <mode> <yolo> <compiled-header>
+  local data=$1 state=$2 id=$3 brief=$4 kind=$5 mode=$6 yolo=$7 compiled_header=${8:-} header provenance provenance_required=0 manifest_region manifests count
+  local manifest_kind manifest_mode manifest_yolo
+  FM_BRIEF_PREFLIGHT_ERROR=
+  case "$compiled_header" in ''|v1) ;; *)
+    FM_BRIEF_PREFLIGHT_ERROR="task $id's compiled-header provenance in its task record is malformed"
+    return 1 ;;
+  esac
+  header="$data/$id/compiled-task-header.md"
+  provenance="$state/$id.compiler-header"
+  if [ -e "$provenance" ] || [ -L "$provenance" ]; then
+    if [ ! -f "$provenance" ] || [ ! -r "$provenance" ] || [ -L "$provenance" ] \
+       || ! cmp -s <(printf 'v1\n') "$provenance"; then
+      FM_BRIEF_PREFLIGHT_ERROR="task $id's compiler-header provenance is invalid: $provenance"
+      return 1
+    fi
+    provenance_required=1
+  fi
+  [ "$compiled_header" = v1 ] && provenance_required=1
+  if [ "$provenance_required" -eq 1 ] || [ -e "$header" ] || [ -L "$header" ]; then
+    if [ ! -f "$header" ] || [ ! -r "$header" ] || [ -L "$header" ]; then
+      FM_BRIEF_PREFLIGHT_ERROR="task $id's compiler-header provenance requires its stored header: $header"
+      return 1
+    fi
+    if ! fm_brief_compiled_header_matches "$header" "$brief"; then
+      FM_BRIEF_PREFLIGHT_ERROR="task $id's compiled Task or schema-v2 manifest changed after scaffolding; regenerate the brief from the compiler-returned header instead of launching altered instructions"
+      return 1
+    fi
+  fi
+
+  manifest_region=$(fm_brief_heading_prefix "$brief" "# Task")
+  manifests=$(printf '%s\n' "$manifest_region" | grep '^<!-- FIRSTMATE_WORKFLOW v2 ' || true)
+  count=$(printf '%s\n' "$manifests" | awk 'NF { count++ } END { print count + 0 }')
+  [ "$count" -gt 0 ] || return 0
+  if [ "$count" -ne 1 ]; then
+    FM_BRIEF_PREFLIGHT_ERROR="task $id's brief has more than one schema-v2 workflow manifest before # Task"
+    return 1
+  fi
+  manifest_kind=$(printf '%s\n' "$manifests" | sed -n 's/.* kind=\([^ ]*\) .*/\1/p')
+  manifest_mode=$(printf '%s\n' "$manifests" | sed -n 's/.* mode=\([^ ]*\) .*/\1/p')
+  manifest_yolo=$(printf '%s\n' "$manifests" | sed -n 's/.* yolo=\([^ ]*\) .*/\1/p')
+  if [ -z "$manifest_kind" ] || [ -z "$manifest_mode" ] || [ -z "$manifest_yolo" ]; then
+    FM_BRIEF_PREFLIGHT_ERROR="task $id's schema-v2 workflow manifest is malformed"
+    return 1
+  fi
+  if [ "$kind" = scout ]; then
+    if [ "$manifest_kind" != scout ] || [ "$manifest_mode" != none ] || [ "$manifest_yolo" != none ]; then
+      FM_BRIEF_PREFLIGHT_ERROR="task $id's workflow manifest says kind=$manifest_kind mode=$manifest_mode yolo=$manifest_yolo but this is a scout spawn"
+      return 1
+    fi
+  elif [ "$manifest_kind" != ship ] || [ "$manifest_mode" != "$mode" ] || [ "$manifest_yolo" != "$yolo" ]; then
+    FM_BRIEF_PREFLIGHT_ERROR="task $id's workflow manifest says kind=$manifest_kind mode=$manifest_mode yolo=$manifest_yolo but this spawn says kind=$kind mode=$mode yolo=$yolo"
+    return 1
+  fi
+  if [ ! -e "$header" ] && [ ! -L "$header" ]; then
+    # shellcheck disable=SC2034  # The sourcing launch/control scripts read this diagnostic after a refusal.
+    FM_BRIEF_PREFLIGHT_ERROR="task $id's schema-v2 brief requires its stored compiler header: $header"
+    return 1
+  fi
 }
 
 fm_brief_marked_captain_words() {  # <task-body>
