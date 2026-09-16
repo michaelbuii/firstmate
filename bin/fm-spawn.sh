@@ -16,8 +16,8 @@
 #   placeholders, an empty Task, or an incomplete pair of Task subsections.
 #   Every ship or scout spawn renders `launch-brief.md`; for a no-mistakes ship
 #   it also carries the current `--intent` contract and the extracted captain
-#   intent. A scaffold created from a compiler-returned typed header stores that
-#   header at data/<id>/compiled-task-header.md. Fresh launches and relaunches
+#   intent. A ship scaffold created from a compiler-returned typed header stores
+#   that header at data/<id>/compiled-task-header.md. Fresh launches and relaunches
 #   require those exact manifest and opening-Task bytes at the start of both the
 #   source brief and rendered launch instructions. A schema-v2 brief without
 #   that header is refused, so it cannot silently lose its compiled opening Task.

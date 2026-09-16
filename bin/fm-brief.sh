@@ -7,7 +7,7 @@
 # own ask plus the context needed to read it, including the substance of any
 # report, decision, or PR the ask refers to) and `{FIRSTMATE_SPEC}`
 # under `## Firstmate spec` (build instructions, which are never the captain's
-# intent). When an external compiler returns a complete typed worker header,
+# intent). When an external compiler returns a complete typed ship header,
 # pass its exact bytes through `--compiled-header-file`; the scaffold stores
 # those bytes at data/<task-id>/compiled-task-header.md and places them before
 # the two provenance subsections without rebuilding its Task. bin/fm-spawn.sh

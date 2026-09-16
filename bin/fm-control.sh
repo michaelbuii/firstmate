@@ -46,6 +46,10 @@
 #              inherits the local copy but none of the conversation; a
 #              secondmate reconciles its own home's records at startup, so its
 #              standing charter is never rewritten.
+#              Before checkpointing or stopping a ship or scout, its source
+#              brief's compiler-header binding is checked, so a source-brief
+#              mismatch in the compiled Task or manifest, or a missing header
+#              for a schema-v2 brief, leaves the old agent running.
 #              Records a durable checkpoint and that note, exits the old agent,
 #              then delegates the launch to its single owner,
 #              bin/fm-spawn.sh --relaunch. A failure before publication keeps
