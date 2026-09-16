@@ -495,6 +495,67 @@ test_relaunch_appends_the_progress_note_to_the_instructions() {
   pass "fm-control relaunch: the progress note lands in the instructions the replacement reads"
 }
 
+test_relaunch_preserves_compiled_task_and_refuses_changed_task_before_stop() {
+  local dir id header brief launch bytes source_task launch_task out rc before after
+  id=rl-compiled
+  dir=$(new_case compiled-task "$id")
+  add_ship_task "$dir" "$id" claude
+  header="$dir/home/data/$id/compiled-task-header.md"
+  cat > "$header" <<'EOF'
+You are a crewmate: an autonomous worker agent managed by firstmate. Work on your own; do not wait for a human.
+<!-- FIRSTMATE_WORKFLOW v2 registry=sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc kind=ship mode=no-mistakes yolo=off playbook=feature overlays=impeccable,vercel-react-best-practices ui=clarify -->
+# Task
+Pstack mode task:
+
+Continue the multiline React dashboard implementation.
+Preserve this exact Task through every relaunch.
+EOF
+  brief="$dir/home/data/$id/brief.md"
+  {
+    cat "$header"
+    cat <<'EOF'
+
+
+## Captain's intent
+Implement the settled dashboard behavior.
+
+## Firstmate spec
+Keep the exact compiled Task while continuing the implementation.
+
+# Definition of done
+Delivery contract: mode=no-mistakes
+EOF
+  } > "$brief"
+
+  out=$(run_control "$dir" "$id" relaunch --note "continue after the compiler-backed launch"); rc=$?
+  expect_code 0 "$rc" "compiler-backed relaunch should succeed"$'\n'"$out"
+  launch="$dir/home/data/$id/launch-brief.md"
+  assert_present "$launch" "relaunch did not render replacement instructions"
+  bytes=$(LC_ALL=C wc -c < "$header" | tr -d ' ')
+  LC_ALL=C dd if="$launch" bs=1 count="$bytes" 2>/dev/null | cmp -s "$header" - \
+    || fail "relaunch changed the compiler-returned Task or manifest bytes"
+  source_task="$dir/source-task"
+  launch_task="$dir/launch-task"
+  awk '$0 == "# Task" { emit=1 } emit && $0 == "# Definition of done" { exit } emit { print }' "$brief" > "$source_task"
+  awk '$0 == "# Task" { emit=1 } emit && $0 == "# Definition of done" { exit } emit { print }' "$launch" > "$launch_task"
+  cmp -s "$source_task" "$launch_task" \
+    || fail "relaunch did not preserve the stored brief Task section byte-for-byte"
+  assert_grep "continue after the compiler-backed launch" "$launch" \
+    "relaunch instructions omitted the progress note"
+
+  perl -0pi -e 's/Preserve this exact Task through every relaunch\./Use a genuinely changed Task./' "$brief"
+  before=$(LC_ALL=C wc -l < "$dir/fake/literal" | tr -d ' ')
+  out=$(run_control "$dir" "$id" relaunch --note "this must refuse before stop"); rc=$?
+  after=$(LC_ALL=C wc -l < "$dir/fake/literal" | tr -d ' ')
+  expect_code 1 "$rc" "changed compiled Task must refuse a relaunch"
+  assert_contains "$out" "compiled Task or schema-v2 manifest changed after scaffolding" \
+    "changed relaunch Task did not identify its canonical header mismatch"
+  [ "$before" = "$after" ] || fail "changed Task refusal delivered lifecycle input before stopping"
+  [ "$(cat "$dir/fake/command")" = claude ] \
+    || fail "changed Task refusal stopped the existing agent"
+  pass "fm-control relaunch: compiled Task bytes survive and changed Tasks refuse before stop"
+}
+
 test_relaunch_requires_a_note_for_a_ship_task() {
   local dir out rc before
   dir=$(new_case nonote rl3)
@@ -1564,6 +1625,7 @@ test_relaunch_preserves_durable_task_metadata
 test_relaunch_serializes_concurrent_durable_metadata_publication
 test_disabled_relaunch_clears_prior_trace_context
 test_relaunch_appends_the_progress_note_to_the_instructions
+test_relaunch_preserves_compiled_task_and_refuses_changed_task_before_stop
 test_relaunch_requires_a_note_for_a_ship_task
 test_harness_switch_moves_the_record_and_clears_prior_wiring
 test_harness_switch_does_not_carry_the_old_profile_axes

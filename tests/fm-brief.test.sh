@@ -221,6 +221,49 @@ test_ship_modes_generate_clean_briefs() {
   pass "fm-brief.sh: no-mistakes/direct-PR/local-only briefs generate cleanly"
 }
 
+# A compiler-backed scaffold must copy the returned typed header as bytes, not
+# reconstruct its Task from Captain intent or Firstmate spec. The Jira Risk Views
+# failure dropped this opening Task paragraph while retaining both subsections.
+test_compiled_header_scaffold_preserves_task_bytes() {
+  local home header brief stored bytes out status bad_header
+  home="$TMP_ROOT/compiled-header-home"
+  header="$TMP_ROOT/compiled-header.md"
+  cat > "$header" <<'EOF'
+You are a crewmate: an autonomous worker agent managed by firstmate. Work on your own; do not wait for a human.
+<!-- FIRSTMATE_WORKFLOW v2 registry=sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa kind=ship mode=no-mistakes yolo=off playbook=feature overlays=impeccable,vercel-react-best-practices ui=clarify -->
+# Task
+Pstack mode task:
+
+Build the React risk dashboard from the settled assessment plan.
+Preserve this multiline Task exactly before Captain intent serialization.
+EOF
+  FM_HOME="$home" "$ROOT/bin/fm-brief.sh" compiled-task-a1 Jira-Risk-Register \
+    --mode no-mistakes --compiled-header-file "$header" >/dev/null 2>&1 \
+    || fail "compiled worker header should scaffold"
+  brief="$home/data/compiled-task-a1/brief.md"
+  stored="$home/data/compiled-task-a1/compiled-task-header.md"
+  cmp -s "$header" "$stored" || fail "stored compiled worker header changed bytes"
+  bytes=$(LC_ALL=C wc -c < "$header" | tr -d ' ')
+  LC_ALL=C dd if="$brief" bs=1 count="$bytes" 2>/dev/null | cmp -s "$header" - \
+    || fail "scaffold rebuilt or truncated the compiled Task header"
+  assert_grep "## Captain's intent" "$brief" \
+    "compiled scaffold omitted the Captain's intent subsection"
+  assert_grep "## Firstmate spec" "$brief" \
+    "compiled scaffold omitted the Firstmate spec subsection"
+
+  bad_header="$TMP_ROOT/compiled-header-wrong-mode.md"
+  sed 's/mode=no-mistakes/mode=direct-PR/' "$header" > "$bad_header"
+  out=$(FM_HOME="$home" "$ROOT/bin/fm-brief.sh" compiled-task-a2 Jira-Risk-Register \
+    --mode no-mistakes --compiled-header-file "$bad_header" 2>&1)
+  status=$?
+  [ "$status" -ne 0 ] || fail "compiled header with a conflicting delivery mode should refuse"
+  assert_contains "$out" "does not match ship mode=no-mistakes" \
+    "compiled header mismatch did not identify the task contract"
+  assert_absent "$home/data/compiled-task-a2/brief.md" \
+    "refused compiled header still produced a brief"
+  pass "fm-brief.sh: compiler-returned Task and manifest bytes survive scaffolding"
+}
+
 # A ship task's delivery mode is firstmate's per-task decision, so a missing or
 # unusable value must stop the scaffold instead of silently defaulting. The
 # no-mistakes-prod-only row is the conditional registry policy: it is never a task
@@ -873,6 +916,7 @@ test_script_parses
 test_no_heredoc_in_command_substitution
 test_help_includes_entire_header
 test_ship_modes_generate_clean_briefs
+test_compiled_header_scaffold_preserves_task_bytes
 test_ship_mode_is_required_and_closed_set
 test_ship_mode_is_explicit_not_registry
 test_delivery_flags_are_refused_where_they_do_not_apply

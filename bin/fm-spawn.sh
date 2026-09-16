@@ -16,7 +16,14 @@
 #   placeholders, an empty Task, or an incomplete pair of Task subsections.
 #   Every ship or scout spawn renders `launch-brief.md`; for a no-mistakes ship
 #   it also carries the current `--intent` contract and the extracted captain
-#   intent. A legacy mixed Task is accepted there only under bin/fm-dod-lib.sh's
+#   intent. A scaffold created from a compiler-returned typed header stores that
+#   header at data/<id>/compiled-task-header.md. Fresh launches and relaunches
+#   require those exact manifest and opening-Task bytes at the start of both the
+#   source brief and rendered launch instructions. A schema-v2 brief without the
+#   sidecar remains rollout-compatible only when it has a nonempty opening Task
+#   before `## Captain's intent`; this catches the historical transformation that
+#   kept the manifest and provenance subsections but dropped the compiled Task.
+#   A legacy mixed Task is accepted there only under bin/fm-dod-lib.sh's
 #   provenance-marking rules; unmarked legacy Tasks stop for migration rather
 #   than becoming intent. That library owns the parsing and intent rules. When
 #   the explicit mode carries less rigor than the project's standing posture, a
@@ -2194,6 +2201,12 @@ if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ];
 fi
 [ -f "$BRIEF" ] || { echo "error: task $ID has no brief at inaccessible data path $BRIEF" >&2; exit 1; }
 if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
+  COMPILED_HEADER="$DATA/$ID/compiled-task-header.md"
+  if ! fm_brief_compiled_task_preflight "$DATA" "$ID" "$BRIEF" "$KIND" "$MODE" "$YOLO"; then
+    echo "error: $FM_BRIEF_PREFLIGHT_ERROR" >&2
+    exit 1
+  fi
+
   if fm_brief_task_placeholders_present "$BRIEF"; then
     echo "error: $BRIEF still contains {TASK} or {FIRSTMATE_SPEC}; fill ## Captain's intent and ## Firstmate spec before spawn" >&2
     exit 1
@@ -2231,6 +2244,13 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
     rm -f -- "$BRIEF_TMP"
     echo "error: could not publish current launch contract for $SOURCE_BRIEF" >&2
     exit 1
+  fi
+  if [ -e "$COMPILED_HEADER" ] || [ -L "$COMPILED_HEADER" ]; then
+    if ! fm_brief_compiled_header_matches "$COMPILED_HEADER" "$BRIEF"; then
+      rm -f -- "$BRIEF"
+      echo "error: rendered launch instructions did not preserve task $ID's compiled Task and schema-v2 manifest bytes" >&2
+      exit 1
+    fi
   fi
 fi
 
