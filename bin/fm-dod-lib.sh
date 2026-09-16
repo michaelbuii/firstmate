@@ -223,6 +223,7 @@ fm_brief_compiled_task_preflight() {  # <data-dir> <state-dir> <task-id> <brief>
     return 1
   fi
   if [ ! -e "$header" ] && [ ! -L "$header" ]; then
+    # shellcheck disable=SC2034  # The sourcing launch/control scripts read this diagnostic after a refusal.
     FM_BRIEF_PREFLIGHT_ERROR="task $id's schema-v2 brief requires its stored compiler header: $header"
     return 1
   fi
